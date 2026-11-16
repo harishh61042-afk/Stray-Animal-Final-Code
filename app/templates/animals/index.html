@@ -1,0 +1,100 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = heading %}
+{% set page_subtitle = subtitle %}
+{% set crumbs = [("Animals", None), (heading, None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}
+  {% if current_user.role == C.ROLE_VETERINARIAN %}
+    <a class="btn btn-outline-primary" href="{{ url_for('medical.unassigned') }}"><i class="bi bi-clipboard2-pulse"></i> Animals without a vet</a>
+  {% elif current_user.role == C.ROLE_SHELTER %}
+    <a class="btn btn-outline-primary" href="{{ url_for('shelters.admissions') }}"><i class="bi bi-box-arrow-in-down"></i> Admissions</a>
+  {% elif current_user.role == C.ROLE_RESCUER %}
+    <a class="btn btn-outline-primary" href="{{ url_for('rescue.my_cases') }}"><i class="bi bi-life-preserver"></i> My cases</a>
+  {% endif %}
+  {% if can_add %}<a class="btn btn-primary" href="{{ url_for('animals.new') }}"><i class="bi bi-plus-lg"></i> Add an animal</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+{% call ui.card(flush=True) %}
+  <div class="an-tabs">
+    <div class="pc-seg" aria-label="Filter by status">
+      <a href="{{ url_with(status=None, page=None) }}" class="{{ 'active' if not status }}">All ({{ total }})</a>
+      {% for s in C.ANIMAL_STATUSES %}{% if counts.get(s) or status == s %}
+        <a href="{{ url_with(status=s, page=None) }}" class="{{ 'active' if status == s }}">{{ s }} ({{ counts.get(s, 0) }})</a>
+      {% endif %}{% endfor %}
+    </div>
+    {% if current_user.role == C.ROLE_VETERINARIAN %}
+      <div class="pc-seg" aria-label="Which animals">
+        <a href="{{ url_with(scope=None, page=None) }}" class="{{ 'active' if scope != 'all' }}">My cases</a>
+        <a href="{{ url_with(scope='all', page=None) }}" class="{{ 'active' if scope == 'all' }}">All animals</a>
+      </div>
+    {% endif %}
+  </div>
+  <form method="get" class="pc-filters" role="search" aria-label="Filter animals">
+    {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+    {% if scope == 'all' %}<input type="hidden" name="scope" value="all">{% endif %}
+    {{ ui.search_filter('q', q, 'Name, code, breed, colour or place') }}
+    {{ ui.select_filter('type', 'Animal', C.ANIMAL_TYPES, animal_type) }}
+    {{ ui.select_filter('medical', 'Medical status', C.MEDICAL_STATUSES, medical) }}
+    {% if shelter_options %}{{ ui.select_filter('shelter_id', 'Shelter', shelter_options, shelter_id) }}{% endif %}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q or animal_type or medical or shelter_id %}<a class="btn btn-link" href="{{ url_with(q=None, type=None, medical=None, shelter_id=None, page=None) }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead>
+          <tr>
+            <th>Animal</th><th>Status</th><th>Health</th>
+            {% if current_user.role != C.ROLE_SHELTER %}<th>Shelter</th>{% endif %}
+            {% if current_user.role != C.ROLE_VETERINARIAN or scope == 'all' %}<th>Veterinarian</th>{% endif %}
+            <th>Updated</th><th class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in pagination.items %}
+            <tr>
+              <td>
+                <a class="an-animal-cell" href="{{ url_for('animals.detail', animal_id=a.id) }}">
+                  {{ ui.img(animal_image_url(a), a.display_name ~ ', ' ~ a.animal_type|lower, class_='an-avatar', fallback=placeholder_url(a.animal_type)) }}
+                  <span><strong>{{ a.display_name }}</strong><small>{{ a.animal_code }} &middot; {{ a.animal_type }}{% if a.breed %} &middot; {{ a.breed }}{% endif %} &middot; {{ a.age_display }}</small></span>
+                </a>
+              </td>
+              <td>{{ ui.status_badge(a.status) }}</td>
+              <td>
+                {{ ui.status_badge(a.medical_status) }}
+                <span class="an-mini">{{ a.vaccination_status }}</span>
+              </td>
+              {% if current_user.role != C.ROLE_SHELTER %}
+                <td>{% if a.shelter %}{{ a.shelter.shelter_name }}{% else %}<span class="text-body-tertiary">Not placed yet</span>{% endif %}</td>
+              {% endif %}
+              {% if current_user.role != C.ROLE_VETERINARIAN or scope == 'all' %}
+                <td>{% if a.veterinarian %}{{ a.veterinarian.full_name }}{% else %}<span class="text-body-tertiary">Not assigned</span>{% endif %}</td>
+              {% endif %}
+              <td><span title="{{ a.updated_at|localdt }}">{{ a.updated_at|timeago }}</span></td>
+              <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('animals.detail', animal_id=a.id) }}">Open</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q or animal_type or medical or shelter_id or status %}
+      {{ ui.empty_state('bi-funnel', 'No animals match these filters', 'Try another status or clear the search.', url_for('animals.index', scope=('all' if scope == 'all' else None)), 'Show every animal') }}
+    {% elif current_user.role == C.ROLE_ADMIN %}
+      {{ ui.empty_state('bi-heart', 'No animals registered yet', 'Animals appear here when a rescuer registers them from a rescue report, or when you add one yourself.', url_for('animals.new'), 'Add an animal') }}
+    {% elif current_user.role == C.ROLE_SHELTER %}
+      {{ ui.empty_state('bi-house-heart', 'No animals in your shelter yet', 'Admit animals that are waiting for a place, or register one that was handed in.', url_for('shelters.admissions'), 'See animals waiting for a shelter') }}
+    {% elif current_user.role == C.ROLE_VETERINARIAN %}
+      {{ ui.empty_state('bi-clipboard2-pulse', 'You have no assigned animals', 'Take over a case from the list of animals that have no veterinarian yet.', url_for('medical.unassigned'), 'Find animals without a vet') }}
+    {% else %}
+      {{ ui.empty_state('bi-life-preserver', 'You have not registered an animal yet', 'After you complete a rescue, register the animal from the rescue report.', url_for('rescue.my_cases'), 'Go to my cases') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

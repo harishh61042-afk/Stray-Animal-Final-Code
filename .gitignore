@@ -1,0 +1,30 @@
+# Secrets and local settings - never commit these
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Uploaded photographs and documents (the folders themselves are kept)
+uploads/*/*
+!uploads/*/.gitkeep
+uploads/_test/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build output
+*.zip
+*.log

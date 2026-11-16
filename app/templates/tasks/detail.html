@@ -1,0 +1,207 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'tasks/_macros.html' as tm %}
+{% set is_admin = current_user.role == C.ROLE_ADMIN %}
+{% set page_title = task.title %}
+{% set page_subtitle = task.task_type %}
+{% set crumbs = [("Coordination", None), ("Volunteer tasks", url_for('tasks.manage')), (task.title, None)] if is_manager else [("Volunteer", None), ("Tasks", url_for('tasks.mine') if mine else url_for('tasks.available')), (task.title, None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if is_manager %}
+    <a class="btn btn-outline-primary" href="{{ url_for('tasks.manage') }}"><i class="bi bi-list-check"></i> All tasks</a>
+    {% if can_edit and is_open %}<a class="btn btn-primary" href="{{ url_for('tasks.edit', task_id=task.id) }}"><i class="bi bi-pencil"></i> Edit task</a>{% endif %}
+  {% else %}
+    <a class="btn btn-outline-primary" href="{{ url_for('tasks.mine') }}"><i class="bi bi-list-check"></i> My tasks</a>
+    <a class="btn btn-primary" href="{{ url_for('tasks.available') }}"><i class="bi bi-search-heart"></i> Find a task</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div class="an-main">
+
+    {% call ui.card() %}
+      <div class="an-head-row mb-3">
+        <div class="an-badges m-0">
+          {{ ui.status_badge(task.status) }}
+          {% if task.is_overdue %}<span class="pc-badge pc-badge-danger"><i class="bi bi-alarm-fill"></i>Overdue</span>{% endif %}
+        </div>
+        <div class="an-mini">Created {{ task.created_at|localdt('%d %b %Y') }}{% if is_manager and task.creator %} by {{ task.creator.full_name }}{% endif %}</div>
+      </div>
+      {% if task.description %}<p class="an-text">{{ task.description|nl2br }}</p>{% else %}<p class="text-secondary mb-0">No description was added.</p>{% endif %}
+      {% if task.instructions %}
+        <div class="an-subhead mt-3">Instructions</div>
+        <p class="an-text">{{ task.instructions|nl2br }}</p>
+      {% endif %}
+      <div class="an-facts">
+        <div class="an-fact"><small>Deadline</small><strong class="{{ 'vt-overdue' if task.is_overdue }}">{{ task.due_at|localdt if task.due_at else 'No deadline' }}</strong></div>
+        <div class="an-fact"><small>Volunteers</small><strong>{{ task.active_assignments|length }} of {{ task.volunteers_needed }}</strong></div>
+        <div class="an-fact"><small>Free places</small><strong>{{ task.open_slots if is_open else 0 }}</strong></div>
+        {% if task.location_name %}<div class="an-fact"><small>Place</small><strong>{{ task.location_name }}</strong></div>{% endif %}
+        {% if task.shelter %}<div class="an-fact"><small>Shelter</small><strong><a href="{{ url_for('shelters.detail', shelter_id=task.shelter.id) }}">{{ task.shelter.shelter_name }}</a></strong></div>{% endif %}
+        {% if is_manager and task.report %}<div class="an-fact"><small>Rescue report</small><strong>{% if is_admin %}<a href="{{ url_for('reports.detail', report_id=task.report.id) }}">{{ task.report.report_code }}</a>{% else %}{{ task.report.report_code }}{% endif %}</strong></div>{% endif %}
+        {% if is_manager and task.animal %}<div class="an-fact"><small>Animal</small><strong>{% if is_admin %}<a href="{{ url_for('animals.detail', animal_id=task.animal.id) }}">{{ task.animal.display_name }}</a>{% else %}{{ task.animal.display_name }}{% endif %}</strong></div>{% endif %}
+      </div>
+      {% if task.active_assignments %}<div class="mt-4">{{ ui.progress(task.progress_percent, 'green', 10, 'Overall progress') }}</div>{% endif %}
+      {% if task.status == C.TASK_CANCELLED %}
+        <div class="alert alert-secondary pc-alert mt-4 mb-0" role="note"><i class="bi bi-slash-circle"></i>
+          <div class="pc-alert-text"><strong>This task was cancelled.</strong>{% if task.cancel_reason %} {{ task.cancel_reason }}{% endif %}</div></div>
+      {% elif task.status == C.TASK_COMPLETED %}
+        <div class="alert alert-success pc-alert mt-4 mb-0" role="note"><i class="bi bi-check2-circle"></i>
+          <div class="pc-alert-text"><strong>This task is completed</strong>{% if task.completed_at %} on {{ task.completed_at|localdt('%d %b %Y') }}{% endif %}. Thank you to everybody who helped!</div></div>
+      {% endif %}
+    {% endcall %}
+
+    {% if task.has_location or task.address %}
+      {% call ui.card('Where') %}
+        {% if task.address %}<p class="an-text mb-3"><i class="bi bi-geo-alt text-success"></i> {{ task.address|nl2br }}</p>{% endif %}
+        {% if markers %}
+          {{ ui.map_box('task-map', 280) }}
+          <p class="an-chart-note"><a href="https://www.openstreetmap.org/?mlat={{ task.latitude }}&amp;mlon={{ task.longitude }}#map=17/{{ task.latitude }}/{{ task.longitude }}" target="_blank" rel="noopener noreferrer">Open in OpenStreetMap <i class="bi bi-box-arrow-up-right"></i></a></p>
+        {% endif %}
+      {% endcall %}
+    {% endif %}
+
+    {% if is_manager %}
+      {% call ui.card('Volunteers', (task.active_assignments|length) ~ ' of ' ~ task.volunteers_needed ~ ' places filled') %}
+        {% if assignments %}
+          {% for a in assignments %}
+            <div class="vt-assignee{{ ' is-inactive' if not a.is_active }}">
+              <div>{{ ui.person(a.volunteer.full_name, a.volunteer.phone or a.volunteer.email, 36) }}</div>
+              <div>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  {{ ui.status_badge(a.status) }}
+                  <span class="an-mini m-0">{% if a.assigned_by is none %}Claimed it{% elif a.assigner %}Assigned by {{ a.assigner.full_name }}{% endif %} &middot; {{ a.assigned_at|localdt('%d %b') }}</span>
+                </div>
+                {% if a.status in (C.TA_ACCEPTED, C.TA_IN_PROGRESS, C.TA_COMPLETED) %}<div class="mt-2">{{ ui.progress(a.progress_percent, 'green', 6) }}</div>{% endif %}
+                {% if a.progress_note %}<p class="vt-notes">{{ 'Reason: ' if a.status == C.TA_DECLINED else 'Note: ' }}{{ a.progress_note }}</p>{% endif %}
+                {% if a.completion_notes or a.hours_spent %}<p class="vt-notes"><strong>Finished:</strong> {{ a.completion_notes or '' }}{% if a.hours_spent %} ({{ '%g'|format(a.hours_spent) }} hour{{ '' if a.hours_spent == 1 else 's' }}){% endif %}</p>{% endif %}
+              </div>
+              <div>
+                {% if can_remove and a.status in (C.TA_ASSIGNED, C.TA_ACCEPTED, C.TA_IN_PROGRESS) %}
+                  {{ ui.confirm_form(url_for('tasks.remove_volunteer', task_id=task.id, assignment_id=a.id), 'Remove', 'Remove ' ~ a.volunteer.full_name ~ ' from this task?', 'btn btn-sm btn-outline-danger', 'bi-person-dash') }}
+                {% endif %}
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          {{ ui.empty_state('bi-people', 'No volunteer yet', 'Assign an approved volunteer on the right, or wait for one to claim the task.') }}
+        {% endif %}
+      {% endcall %}
+    {% endif %}
+  </div>
+
+  <aside class="an-side" aria-label="Actions">
+    {% if not is_manager %}
+      {% call ui.card('Your part') %}
+        {% if mine and mine.status == C.TA_ASSIGNED %}
+          <p class="an-text mb-3">An administrator or rescuer asked you to help with this task. Please accept or decline.</p>
+          <div class="an-stack">
+            {{ ui.post_button(url_for('tasks.accept', task_id=task.id), 'Accept this task', 'btn btn-primary w-100', 'bi-check2') }}
+            <form method="post" action="{{ url_for('tasks.decline', task_id=task.id) }}" class="an-stack" data-confirm="Decline this task?">
+              {{ ui.csrf() }}
+              <textarea class="form-control" name="reason" rows="2" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for declining"></textarea>
+              <button class="btn btn-outline-danger w-100" type="submit"><i class="bi bi-x-lg"></i> Decline</button>
+            </form>
+          </div>
+        {% elif mine and mine.status in (C.TA_ACCEPTED, C.TA_IN_PROGRESS) and is_open %}
+          <div class="an-action">
+            <h3>Report your progress</h3>
+            <form method="post" action="{{ url_for('tasks.progress', task_id=task.id) }}" class="an-stack">
+              {{ ui.csrf() }}
+              <div>
+                <label class="form-label" for="progress_percent">How far are you?</label>
+                <div class="vt-range">
+                  <input type="range" class="form-range" id="progress_percent" name="progress_percent" min="0" max="99" step="5" value="{{ [mine.progress_percent, 99]|min }}" data-range-output="progress-output">
+                  <output id="progress-output" for="progress_percent">{{ [mine.progress_percent, 99]|min }}%</output>
+                </div>
+              </div>
+              <textarea class="form-control" name="note" rows="2" maxlength="1000" placeholder="What have you done so far? (optional)" aria-label="Progress note">{{ mine.progress_note or '' }}</textarea>
+              <button class="btn btn-outline-primary" type="submit" data-loading><i class="bi bi-arrow-repeat"></i> Save progress</button>
+            </form>
+          </div>
+          <div class="an-action">
+            <h3>Finished?</h3>
+            <form method="post" action="{{ url_for('tasks.complete', task_id=task.id) }}" class="an-stack">
+              {{ ui.csrf() }}
+              <textarea class="form-control" name="notes" rows="2" maxlength="1000" placeholder="What did you do? (optional)" aria-label="Completion notes"></textarea>
+              <div>
+                <label class="form-label" for="hours">Hours spent (optional)</label>
+                <input class="form-control" type="number" id="hours" name="hours" min="0.1" max="100" step="0.1" placeholder="e.g. 2.5">
+              </div>
+              <button class="btn btn-primary" type="submit" data-loading data-confirm="Mark this task as completed?"><i class="bi bi-check2-circle"></i> Mark as completed</button>
+            </form>
+          </div>
+          {% if mine.status == C.TA_ACCEPTED %}
+            <div class="an-action">
+              <h3>Cannot do it?</h3>
+              <form method="post" action="{{ url_for('tasks.decline', task_id=task.id) }}" class="an-stack" data-confirm="Give this task back?">
+                {{ ui.csrf() }}
+                <input class="form-control" name="reason" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for declining">
+                <button class="btn btn-outline-danger" type="submit"><i class="bi bi-box-arrow-left"></i> Give the task back</button>
+              </form>
+            </div>
+          {% endif %}
+        {% elif mine and mine.status == C.TA_COMPLETED %}
+          <div class="alert alert-success pc-alert mb-0" role="note"><i class="bi bi-check2-circle"></i>
+            <div class="pc-alert-text"><strong>You completed this task</strong>{% if mine.completed_at %} on {{ mine.completed_at|localdt('%d %b %Y') }}{% endif %}.{% if mine.hours_spent %} {{ '%g'|format(mine.hours_spent) }} hour{{ '' if mine.hours_spent == 1 else 's' }} recorded.{% endif %} Thank you!</div></div>
+        {% elif can_join %}
+          <p class="an-text mb-3">{% if mine %}You gave this task back earlier. It still needs {{ task.open_slots }} more volunteer{{ '' if task.open_slots == 1 else 's' }}.{% else %}This task needs {{ task.open_slots }} more volunteer{{ '' if task.open_slots == 1 else 's' }}.{% endif %}</p>
+          {{ ui.post_button(url_for('tasks.accept', task_id=task.id), 'Accept this task', 'btn btn-primary w-100', 'bi-check2') }}
+        {% elif is_open %}
+          <p class="text-secondary mb-0">This task already has all the volunteers it needs.</p>
+        {% else %}
+          <p class="text-secondary mb-0">This task is closed.</p>
+        {% endif %}
+      {% endcall %}
+    {% else %}
+      {% call ui.card('Coordinate') %}
+        {% if is_open %}
+          <div class="an-action">
+            <h3>Assign a volunteer</h3>
+            {% if volunteers %}
+              <form method="post" action="{{ url_for('tasks.assign', task_id=task.id) }}" class="an-stack">
+                {{ ui.csrf() }}
+                <select class="form-select" name="volunteer_id" required aria-label="Volunteer">
+                  <option value="">Choose a volunteer...</option>
+                  {% for v in volunteers %}<option value="{{ v.id }}">{{ v.full_name }}{% if v.volunteer_profile.availability %} — {{ v.volunteer_profile.availability|truncate(30) }}{% endif %}</option>{% endfor %}
+                </select>
+                <button class="btn btn-primary" type="submit" data-loading><i class="bi bi-person-plus"></i> Assign and notify</button>
+              </form>
+              <p class="an-note">The volunteer can accept or decline.</p>
+            {% elif task.open_slots == 0 %}
+              <p class="text-secondary mb-0">All places are filled.</p>
+            {% else %}
+              <p class="text-secondary mb-0">No approved volunteer is free to assign. Approved volunteers can also claim this task themselves.</p>
+            {% endif %}
+          </div>
+          {% if can_edit %}
+            <div class="an-action">
+              <h3>Cancel the task</h3>
+              <form method="post" action="{{ url_for('tasks.cancel', task_id=task.id) }}" class="an-stack" data-confirm="Cancel this task? The volunteers on it are told.">
+                {{ ui.csrf() }}
+                <input class="form-control" name="reason" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for cancelling">
+                <button class="btn btn-outline-danger" type="submit"><i class="bi bi-x-circle"></i> Cancel task</button>
+              </form>
+            </div>
+          {% else %}
+            <p class="an-note">Only the person who created this task, or an administrator, can edit or cancel it.</p>
+          {% endif %}
+        {% else %}
+          <p class="text-secondary mb-0">This task is {{ task.status|lower }}. Closed tasks cannot be changed.</p>
+        {% endif %}
+      {% endcall %}
+    {% endif %}
+  </aside>
+</div>
+{% if markers %}<script type="application/json" id="task-marker">{{ markers|tojson }}</script>{% endif %}
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script src="{{ url_for('static', filename='js/task_detail.js') }}"></script>
+{% endblock %}

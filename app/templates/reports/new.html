@@ -1,0 +1,141 @@
+{% extends "layouts/app.html" if current_user.is_authenticated else "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Report an animal" %}
+{% set page_subtitle = "Tell the rescue team where an animal needs help" %}
+{% set crumbs = [("Report an animal", None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  {% if not current_user.is_authenticated %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set authed = current_user.is_authenticated %}
+{% set level_help = {
+  'Critical': 'Life-threatening: heavy bleeding, hit by a vehicle, cannot move.',
+  'High': 'Badly hurt or very sick and needs help today.',
+  'Medium': 'Needs attention within a day or two.',
+  'Low': 'Stray or healthy, no immediate danger.'
+} %}
+{% if not authed %}
+<section class="pb-page-head">
+  <div class="container-xxl">
+    <span class="pb-eyebrow"><i class="bi bi-megaphone"></i> Report an animal</span>
+    <h1>Help us reach an animal in need</h1>
+    <p>No account is needed. Tell us what you saw and where, and the rescue team takes it from there.</p>
+  </div>
+</section>
+{% endif %}
+
+<div class="rp-page{{ '' if authed else ' container-xxl pb-body' }}">
+  <div class="rp-layout">
+    <div>
+      {% call ui.card('Rescue report', 'Fields marked * are required') %}
+        <form method="post" enctype="multipart/form-data" novalidate class="rp-form" data-report-form>
+          {{ form.hidden_tag() }}
+          {{ f.form_errors(form) }}
+          <div class="rp-hp" aria-hidden="true">
+            <label for="website">Leave this field empty</label>
+            {{ form.website(tabindex='-1', autocomplete='off') }}
+          </div>
+
+          <section class="pc-form-section">
+            <h3><i class="bi bi-clipboard2-heart"></i> About the animal</h3>
+            <div class="row g-3">
+              {{ f.field(form.animal_type, col='col-md-6') }}
+              {{ f.field(form.animal_count, col='col-md-3') }}
+              {{ f.field(form.approximate_age, col='col-md-3', placeholder='e.g. 2 years, puppy') }}
+              {{ f.field(form.animal_condition, col='col-12') }}
+              <div class="col-12">
+                {{ f.field(form.animal_description, rows=4, placeholder='Colour, size, behaviour, what happened, anything that helps us recognise the animal') }}
+                <div class="rp-counter" id="desc-counter" aria-hidden="true"></div>
+              </div>
+              <div class="col-12">
+                <div class="pc-field">
+                  <div class="form-label" id="level-label">How urgent is it? <span class="text-danger">*</span></div>
+                  <div class="rp-levels" role="radiogroup" aria-labelledby="level-label">
+                    {% for value in levels %}
+                      <input class="rp-level-input" type="radio" name="{{ form.emergency_level.name }}" id="level-{{ loop.index }}"
+                             value="{{ value }}"{{ ' checked' if form.emergency_level.data == value }}{{ ' required' if loop.first }}>
+                      <label class="rp-level" for="level-{{ loop.index }}" style="--c:{{ C.EMERGENCY_COLORS[value] }}">
+                        <strong>{{ value }}</strong><small>{{ level_help[value] }}</small>
+                      </label>
+                    {% endfor %}
+                  </div>
+                  {% for e in form.emergency_level.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="pc-form-section">
+            <h3><i class="bi bi-geo-alt"></i> Where is the animal?</h3>
+            <div class="row g-3">
+              {{ f.field(form.location_name, col='col-md-6', placeholder='e.g. Green Park bus stop', prefix_icon='bi-pin-map') }}
+              {{ f.field(form.address, col='col-md-6', rows=2, placeholder='Street, area, city or the nearest landmark') }}
+              <div class="col-12">
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                  <button type="button" id="locate-btn" class="btn btn-soft btn-sm"><i class="bi bi-crosshair"></i> Use my current location</button>
+                  <span class="pc-geo-status m-0" id="geo-status" aria-live="polite">Click the map to drop a pin, or use your current location.</span>
+                </div>
+                {{ ui.map_box('report-map', 300) }}
+              </div>
+              {{ f.coordinate_fields(form.latitude, form.longitude) }}
+              <div class="col-12"><div class="form-text mt-0">The pin is optional but helps the rescuer find the animal faster. If the map does not load, just write the address clearly.</div></div>
+            </div>
+          </section>
+
+          <section class="pc-form-section">
+            <h3><i class="bi bi-camera"></i> Photo</h3>
+            {{ f.field(form.image, accept='image/png,image/jpeg,image/gif,image/webp', help='A clear photo helps the rescuer recognise the animal. JPG, PNG, GIF or WEBP, up to 8 MB.') }}
+          </section>
+
+          <section class="pc-form-section">
+            <h3><i class="bi bi-person-lines-fill"></i> Your contact details</h3>
+            <div class="row g-3">
+              {{ f.field(form.reporter_name, col='col-md-6', prefix_icon='bi-person') }}
+              {{ f.field(form.reporter_phone, col='col-md-6', placeholder='+91 98765 43210', prefix_icon='bi-telephone') }}
+              {{ f.field(form.reporter_email, col='col-md-12', placeholder='you@example.com', prefix_icon='bi-envelope',
+                         help='Optional. Used only to follow up on this report.') }}
+              {{ f.field(form.additional_info, col='col-12', rows=3, placeholder='Gate codes, who else has seen the animal, safe ways to approach it...') }}
+            </div>
+            <p class="form-text mt-3 mb-0"><i class="bi bi-shield-lock"></i> Your contact details are visible only to the PawConnect administrators and the rescuer who takes the case.</p>
+          </section>
+
+          <div class="d-flex flex-wrap gap-2 align-items-center pt-2">
+            {{ f.submit('Send report', 'bi-send', 'btn btn-primary btn-lg', 'Sending...') }}
+            <a class="btn btn-link" href="{{ url_for('reports.track') }}">Already reported? Track your report</a>
+          </div>
+        </form>
+      {% endcall %}
+    </div>
+
+    <aside class="rp-aside" aria-label="Help">
+      {% call ui.card('What happens next') %}
+        <ol class="rp-next">
+          <li><strong>We review your report</strong>An administrator checks the details and how urgent it is.</li>
+          <li><strong>A rescuer is assigned</strong>A verified rescuer accepts the case and goes to the location.</li>
+          <li><strong>You can follow progress</strong>Use your Report ID on the <a href="{{ url_for('reports.track') }}">tracking page</a>{% if authed %} or in <a href="{{ url_for('reports.mine') }}">My reports</a>{% endif %}.</li>
+          <li><strong>The animal gets care</strong>Rescued animals are registered, examined by a vet and cared for until they find a home.</li>
+        </ol>
+      {% endcall %}
+      {% call ui.card('Tips for a useful report') %}
+        <ul class="rp-tips">
+          <li>Stay at a safe distance. Do not put yourself in danger.</li>
+          <li>Give a landmark: a shop, a bus stop or a gate number.</li>
+          <li>Add a photo if you can do it safely.</li>
+          <li>Keep your phone nearby: the rescuer may call you.</li>
+        </ul>
+      {% endcall %}
+      <div class="alert alert-warning pc-alert mb-0" role="note"><i class="bi bi-exclamation-triangle"></i>
+        <div class="pc-alert-text">If a person is in danger, call your local emergency services first. PawConnect is not an emergency phone line.</div></div>
+    </aside>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script src="{{ url_for('static', filename='js/report_form.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Messages" %}
+{% set page_subtitle = "Questions and feedback sent through the contact form" %}
+{% set crumbs = [("Administration", None), ("Messages", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-primary" href="{{ url_for('admin.send_notification') }}"><i class="bi bi-megaphone"></i> Send a notice</a>
+{% endblock %}
+
+{% block content %}
+{% set new_count = counts.get(C.CONTACT_NEW, 0) %}
+{% set resolved_count = counts.get(C.CONTACT_RESOLVED, 0) %}
+<div class="vstack gap-4">
+  {% call ui.card(flush=True) %}
+    <div class="an-tabs">
+      <div class="pc-seg" aria-label="Message status">
+        <a href="{{ url_with(status=None, page=None) }}" class="{{ 'active' if status == C.CONTACT_NEW }}">New ({{ new_count }})</a>
+        <a href="{{ url_with(status=C.CONTACT_RESOLVED, page=None) }}" class="{{ 'active' if status == C.CONTACT_RESOLVED }}">Resolved ({{ resolved_count }})</a>
+        <a href="{{ url_with(status='all', page=None) }}" class="{{ 'active' if status not in [C.CONTACT_NEW, C.CONTACT_RESOLVED] }}">All ({{ new_count + resolved_count }})</a>
+      </div>
+    </div>
+    <form method="get" class="pc-filters" role="search" aria-label="Search messages">
+      <input type="hidden" name="status" value="{{ status }}">
+      {{ ui.search_filter('q', q, 'Name, e-mail, subject or text') }}
+      <div class="pc-filter d-flex gap-2 align-items-center">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+        {% if q %}<a class="btn btn-link" href="{{ url_with(q=None, page=None) }}">Clear</a>{% endif %}
+      </div>
+    </form>
+  {% endcall %}
+
+  {% if pagination.items %}
+    <div class="am-inbox">
+      {% for m in pagination.items %}
+        <article class="am-msg{{ ' is-new' if m.status == C.CONTACT_NEW }}">
+          <div class="am-msg-head">
+            <div>
+              <h3>{{ m.subject }}</h3>
+              <div class="am-msg-meta">{{ m.name }} &middot; <a href="mailto:{{ m.email }}">{{ m.email }}</a> &middot; {{ m.created_at|localdt }}</div>
+            </div>
+            {{ ui.status_badge(m.status) }}
+          </div>
+          <div class="am-msg-body">{{ m.message|nl2br }}</div>
+          <div class="am-msg-actions">
+            <a class="btn btn-sm btn-outline-primary" href="mailto:{{ m.email }}?subject={{ ('Re: ' ~ m.subject)|urlencode }}"><i class="bi bi-reply"></i> Reply by e-mail</a>
+            {% if m.status == C.CONTACT_NEW %}
+              {{ ui.post_button(url_for('admin.message_status', message_id=m.id), 'Mark as resolved', 'btn btn-sm btn-primary', 'bi-check2-circle', {'status': C.CONTACT_RESOLVED, 'next': url_with()}) }}
+            {% else %}
+              {{ ui.post_button(url_for('admin.message_status', message_id=m.id), 'Reopen', 'btn btn-sm btn-outline-secondary', 'bi-arrow-counterclockwise', {'status': C.CONTACT_NEW, 'next': url_with()}) }}
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+    {{ ui.pagination(pagination) }}
+  {% elif q %}
+    {% call ui.card() %}{{ ui.empty_state('bi-funnel', 'No message matches', 'Try other words or clear the search.', url_with(q=None, page=None), 'Clear search') }}{% endcall %}
+  {% elif status == C.CONTACT_NEW %}
+    {% call ui.card() %}{{ ui.empty_state('bi-inbox', 'No new messages', 'Messages from the contact form appear here. Everything has been answered.') }}{% endcall %}
+  {% else %}
+    {% call ui.card() %}{{ ui.empty_state('bi-inbox', 'No messages here', 'Nothing has this status yet.', url_with(status=None, page=None), 'Show new messages') }}{% endcall %}
+  {% endif %}
+</div>
+{% endblock %}

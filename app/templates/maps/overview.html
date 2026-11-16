@@ -1,0 +1,89 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Rescue map" %}
+{% set page_subtitle = "Where animals need help" %}
+{% set crumbs = [("Rescue", None), ("Rescue map", None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if current_user.role == C.ROLE_RESCUER %}<a class="btn btn-outline-primary" href="{{ url_for('rescue.my_cases') }}"><i class="bi bi-life-preserver"></i> My cases</a>{% endif %}
+  <a class="btn btn-primary" href="{{ url_for('rescue.manage') }}"><i class="bi bi-inbox"></i> Incoming reports</a>
+{% endblock %}
+
+{% block content %}
+<div class="vstack gap-4">
+  {% call ui.card() %}
+    <form method="get" class="pc-filters p-0" role="search" aria-label="Map filters">
+      <div class="pc-filter">
+        <label class="form-label" for="f-status">Status</label>
+        <select class="form-select" id="f-status" name="status" data-auto-submit>
+          <option value="open"{{ ' selected' if status == 'open' }}>Open reports</option>
+          <option value="all"{{ ' selected' if status == 'all' }}>All reports</option>
+          {% for s in C.REPORT_STATUSES %}<option value="{{ s }}"{{ ' selected' if status == s }}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      {{ ui.select_filter('emergency', 'Urgency', C.EMERGENCY_LEVELS, emergency) }}
+      {{ ui.select_filter('type', 'Animal', C.ANIMAL_TYPES, animal_type) }}
+      <div class="pc-filter d-flex gap-2 align-items-center">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i> Apply</button>
+        {% if status != 'open' or emergency or animal_type %}<a class="btn btn-link" href="{{ url_for('maps.overview') }}">Reset</a>{% endif %}
+      </div>
+    </form>
+  {% endcall %}
+
+  <div class="rp-mapgrid">
+    {% call ui.card('Reports on the map', (markers|length) ~ ' of ' ~ (reports|length) ~ ' reports have a location') %}
+      <div data-rescue-map data-api="{{ url_for('maps.api_reports') }}" data-refresh="60">
+        {{ ui.map_box('rescue-map', 540) }}
+      </div>
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+        <div class="rp-legend" aria-label="Pin colours">
+          {% for level in C.EMERGENCY_LEVELS %}<span style="--c:{{ C.EMERGENCY_COLORS[level] }}"><i></i>{{ level }}</span>{% endfor %}
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <span id="map-refresh-status" class="small text-secondary" aria-live="polite">The map refreshes every minute.</span>
+          <button type="button" class="btn btn-sm btn-soft" id="map-refresh"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+        </div>
+      </div>
+      {% if reports|length >= limit %}<p class="small text-secondary mt-2 mb-0">Only the {{ limit }} most urgent matching reports are shown. Use the filters to narrow the map down.</p>{% endif %}
+      <noscript><p class="small text-secondary mt-2 mb-0">JavaScript is needed to draw the map. The list next to it shows the same reports.</p></noscript>
+    {% endcall %}
+
+    {% call ui.card('Reports', 'Most urgent first') %}
+      {% if reports %}
+        <div class="rp-maplist">
+          {% for r in reports[:60] %}
+            <a href="{{ url_for('reports.detail', report_id=r.id) }}" style="--c:{{ C.EMERGENCY_COLORS.get(r.emergency_level, '#1f9d63') }}">
+              <span>
+                <strong>{{ r.report_code }} &middot; {{ r.animal_type }}</strong>
+                <small>{{ r.animal_condition }} &middot; {{ r.emergency_level }}</small>
+                <small><i class="bi {{ 'bi-geo-alt-fill' if r.has_location else 'bi-geo-alt' }}"></i> {{ r.location_name }}{% if not r.has_location %} (not pinned){% endif %}</small>
+                <small>{{ r.status }} &middot; {{ r.created_at|timeago }}</small>
+              </span>
+            </a>
+          {% endfor %}
+        </div>
+        {% if reports|length > 60 %}<p class="small text-secondary mt-2 mb-0">Showing the first 60. <a href="{{ url_for('rescue.manage', status=status if status != 'all' else None) }}">Open the full list</a>.</p>{% endif %}
+      {% else %}
+        {{ ui.empty_state('bi-geo-alt', 'No reports match', 'Change the filters to see other reports, or check back when new reports arrive.', url_for('maps.overview'), 'Reset filters') }}
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  {% if unmapped %}
+    <div class="alert alert-info pc-alert mb-0" role="note"><i class="bi bi-info-circle"></i>
+      <div class="pc-alert-text"><strong>{{ unmapped|length }} report{{ '' if unmapped|length == 1 else 's' }} without a pin.</strong>
+        The reporter did not mark the spot, so please use the written address:
+        {% for r in unmapped[:5] %}<a href="{{ url_for('reports.detail', report_id=r.id) }}">{{ r.report_code }}</a>{{ ', ' if not loop.last }}{% endfor %}{% if unmapped|length > 5 %} and {{ unmapped|length - 5 }} more{% endif %}.</div>
+    </div>
+  {% endif %}
+</div>
+<script type="application/json" id="rescue-map-data">{{ markers|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script src="{{ url_for('static', filename='js/rescue_map.js') }}"></script>
+{% endblock %}

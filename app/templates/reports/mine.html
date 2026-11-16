@@ -1,0 +1,50 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "My reports" %}
+{% set page_subtitle = "Animals you reported and how the rescues are going" %}
+{% set crumbs = [("My reports", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('reports.track') }}"><i class="bi bi-search"></i> Track by ID</a>
+  <a class="btn btn-primary" href="{{ url_for('reports.new') }}"><i class="bi bi-megaphone"></i> Report an animal</a>
+{% endblock %}
+
+{% block content %}
+{% call ui.card(flush=True) %}
+  {% if total %}
+    <div class="rp-tabs">
+      <div class="pc-seg" aria-label="Filter by status">
+        <a href="{{ url_with(status=None, page=None) }}" class="{{ 'active' if not status }}">All ({{ total }})</a>
+        {% for s in statuses %}{% if counts.get(s) %}
+          <a href="{{ url_with(status=s, page=None) }}" class="{{ 'active' if status == s }}">{{ s }} ({{ counts[s] }})</a>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+    {% if pagination.items %}
+      <div class="table-responsive mt-3">
+        <table class="table pc-table align-middle">
+          <thead><tr><th>Report</th><th>Location</th><th>Urgency</th><th>Status</th><th>Submitted</th><th class="text-end">&nbsp;</th></tr></thead>
+          <tbody>
+            {% for r in pagination.items %}
+              <tr>
+                <td><a class="fw-semibold" href="{{ url_for('reports.detail', report_id=r.id) }}">{{ r.report_code }}</a>
+                  <span class="rp-mini">{{ r.animal_type }} &middot; {{ r.animal_condition }}</span></td>
+                <td>{{ r.location_name }}</td>
+                <td>{{ ui.emergency_badge(r.emergency_level) }}</td>
+                <td>{{ ui.status_badge(r.status) }}</td>
+                <td><span title="{{ r.created_at|localdt }}">{{ r.created_at|timeago }}</span></td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('reports.detail', report_id=r.id) }}">View</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3">{{ ui.pagination(pagination) }}</div>
+    {% else %}
+      {{ ui.empty_state('bi-funnel', 'No reports with this status', 'Choose another status above to see your other reports.', url_for('reports.mine'), 'Show all') }}
+    {% endif %}
+  {% else %}
+    {{ ui.empty_state('bi-megaphone', 'You have not reported an animal yet', 'When you see an animal that needs help, report it here and follow the rescue step by step.', url_for('reports.new'), 'Report an animal') }}
+  {% endif %}
+{% endcall %}
+{% endblock %}

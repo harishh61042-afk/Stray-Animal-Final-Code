@@ -1,0 +1,59 @@
+{% extends "layouts/app.html" if current_user.is_authenticated else "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Track a report" %}
+{% set page_subtitle = "See how a rescue is going" %}
+{% set crumbs = [("Track a report", None)] %}
+{% block head_extra %}
+  {% if not current_user.is_authenticated %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set authed = current_user.is_authenticated %}
+{% if not authed %}
+<section class="pb-page-head">
+  <div class="container-xxl">
+    <span class="pb-eyebrow"><i class="bi bi-search-heart"></i> Track a report</span>
+    <h1>How is the rescue going?</h1>
+    <p>Enter the Report ID from your confirmation and the phone number or e-mail you gave when you reported.</p>
+  </div>
+</section>
+{% endif %}
+
+<div class="rp-page rp-narrow{{ '' if authed else ' container-xxl pb-body' }}">
+  {% call ui.card('Find your report', 'Your contact details must match the report. This keeps other people\'s reports private.') %}
+    <form method="post" novalidate>
+      {{ form.hidden_tag() }}
+      {{ f.form_errors(form) }}
+      <div class="row g-3 align-items-end">
+        {{ f.field(form.code, col='col-md-5', placeholder='RPT-2026-00001', prefix_icon='bi-hash', autofocus=(report is none)) }}
+        {{ f.field(form.contact, col='col-md-5', placeholder='Phone number or e-mail', prefix_icon='bi-person-lines-fill') }}
+        <div class="col-md-2">{{ f.submit('Track', 'bi-search', 'btn btn-primary w-100', 'Searching...') }}</div>
+      </div>
+    </form>
+    {% if authed %}<p class="small text-secondary mt-3 mb-0">You are signed in: all reports you submitted are listed in <a href="{{ url_for('reports.mine') }}">My reports</a>.</p>{% endif %}
+  {% endcall %}
+
+  {% if report %}
+    <div class="mt-4">
+    {% call ui.card('Report ' ~ report.report_code, 'Submitted ' ~ (report.created_at|localdt)) %}
+      <div class="rp-head">
+        <div class="rp-badges">{{ ui.status_badge(report.status) }}{{ ui.emergency_badge(report.emergency_level) }}</div>
+        <small>Last update {{ report.updated_at|timeago }}</small>
+      </div>
+      {% include 'reports/_progress.html' %}
+      <div class="rp-facts">
+        <div class="rp-fact"><small>Animal</small><strong>{{ report.animal_type }}{% if report.animal_count > 1 %} &times; {{ report.animal_count }}{% endif %}</strong></div>
+        <div class="rp-fact"><small>Condition</small><strong>{{ report.animal_condition }}</strong></div>
+        <div class="rp-fact"><small>Location</small><strong>{{ report.location_name }}</strong></div>
+        <div class="rp-fact"><small>Rescuer</small><strong>{% if report.active_assignment %}Assigned{% elif report.status in [C.REPORT_RESCUED, C.REPORT_CLOSED] and report.latest_assignment %}Completed the case{% else %}Not yet assigned{% endif %}</strong></div>
+      </div>
+      <hr class="pc-divider">
+      <h3 class="rp-subhead">Progress</h3>
+      {{ ui.timeline(timeline) }}
+    {% endcall %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

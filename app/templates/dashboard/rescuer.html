@@ -1,0 +1,65 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'dashboard/_lists.html' as lists %}
+{% set page_title = "Rescuer dashboard" %}
+{% set page_subtitle = "Your assignments and rescue progress" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('maps.overview') }}"><i class="bi bi-geo-alt"></i> Rescue map</a>
+  <a class="btn btn-primary" href="{{ url_for('rescue.manage') }}"><i class="bi bi-inbox"></i> Incoming reports</a>
+{% endblock %}
+
+{% block content %}
+{% set hour = utcnow()|localdt('%H')|int %}
+{% set greeting = 'Good morning' if hour < 12 else ('Good afternoon' if hour < 17 else 'Good evening') %}
+{% set waiting = d.awaiting|length %}
+{% set active = d.active|length %}
+<div class="db-wrap">
+  <div class="db-kpis">
+    {{ ui.kpi('Awaiting your reply', waiting, 'bi-hourglass-split', 'amber', None, None, 'up', 'Accept or decline', url_for('rescue.my_cases')) }}
+    {{ ui.kpi('Active cases', active, 'bi-life-preserver', 'teal', None, None, 'up', (d.overdue ~ ' overdue') if d.overdue else 'None overdue', url_for('rescue.my_cases')) }}
+    {{ ui.kpi('Rescues completed', d.completed, 'bi-check2-circle', 'green', d.series[-8:], d.delta, 'up', d.this_month ~ ' this month', url_for('rescue.history')) }}
+    {{ ui.kpi('Open reports', d.open_total, 'bi-inbox', 'coral', None, None, 'up', 'Across PawConnect', url_for('rescue.manage')) }}
+  </div>
+
+  <div class="db-row db-row-hero">
+    {% call ui.hero(greeting ~ ', ' ~ current_user.full_name.split(' ')[0],
+                    (waiting ~ ' assignment' ~ ('' if waiting == 1 else 's') ~ ' waiting for your reply') if waiting else 'No assignments are waiting for you',
+                    'Accept a case to start the rescue, or decline it so an administrator can choose someone else.' if waiting else ('You have ' ~ active ~ ' active case' ~ ('' if active == 1 else 's') ~ '. New assignments appear here and in your notifications.'),
+                    'bi-life-preserver') %}
+      <a class="btn btn-light" href="{{ url_for('rescue.my_cases') }}">Open my cases <i class="bi bi-arrow-up-right"></i></a>
+      <a class="btn btn-glass" href="{{ url_for('rescue.manage') }}">Incoming reports</a>
+    {% endcall %}
+
+    {% call ui.card('Rescues completed', 'Cases you finished, last 12 months') %}
+      <div class="db-bignum mb-2">{{ d.completed }} <small>in total</small></div>
+      {{ ui.chart('chart-rescues', d.chart, 200) }}
+    {% endcall %}
+  </div>
+
+  <div class="db-row db-row-2-even">
+    {% call ui.card('Waiting for your reply', 'Accept or decline these assignments') %}
+      {{ lists.assignment_rows(d.awaiting, 'bi-check2-all', 'Nothing is waiting', 'When an administrator assigns a report to you, it shows up here.') }}
+    {% endcall %}
+    {% call ui.card('Active cases', 'Rescues you have accepted') %}
+      {{ lists.assignment_rows(d.active, 'bi-life-preserver', 'No active cases', 'Accepted assignments are listed here until you complete them.') }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block right_rail %}
+  {% include 'dashboard/_notes.html' %}
+  {% call ui.card('Quick actions') %}
+    <div class="db-quick">
+      <a href="{{ url_for('rescue.manage') }}"><i class="bi bi-inbox"></i> Incoming reports</a>
+      <a href="{{ url_for('rescue.my_cases') }}"><i class="bi bi-life-preserver"></i> My cases</a>
+      <a href="{{ url_for('rescue.history') }}"><i class="bi bi-clock-history"></i> Case history</a>
+      <a href="{{ url_for('maps.overview') }}"><i class="bi bi-geo-alt"></i> Rescue map</a>
+      <a href="{{ url_for('animals.index') }}"><i class="bi bi-heart"></i> Animals</a>
+      <a href="{{ url_for('account.profile') }}"><i class="bi bi-person-circle"></i> My profile</a>
+    </div>
+  {% endcall %}
+{% endblock %}
+
+{% block scripts %}{{ ui.chart_scripts() }}{% endblock %}

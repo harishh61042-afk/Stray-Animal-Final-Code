@@ -1,0 +1,105 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = ("Edit task" if task else "New volunteer task") %}
+{% set page_subtitle = (task.title if task else "Describe what needs to be done and where") %}
+{% set crumbs = [("Coordination", None), ("Volunteer tasks", url_for('tasks.manage')), ("Edit" if task else "New", None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if task %}<a class="btn btn-outline-primary" href="{{ url_for('tasks.detail', task_id=task.id) }}"><i class="bi bi-eye"></i> View task</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div>
+    {% call ui.card('Task details', 'Fields marked * are required.') %}
+      <form method="post" novalidate class="an-form">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+
+        <section class="pc-form-section">
+          <h3><i class="bi bi-card-text"></i> The task</h3>
+          <div class="row g-3">
+            {{ f.field(form.title, col='col-md-8', autofocus=True, placeholder='e.g. Feed the street dogs near the market') }}
+            {{ f.field(form.task_type, col='col-md-4') }}
+            {{ f.field(form.description, col='col-12', rows=3, help='What needs to be done, in a few sentences.') }}
+            {{ f.field(form.instructions, col='col-12', rows=3, help='Only helpful details for the volunteer: what to bring, whom to meet, safety advice.') }}
+          </div>
+        </section>
+
+        <section class="pc-form-section">
+          <h3><i class="bi bi-geo-alt"></i> Where and when</h3>
+          <div class="row g-3">
+            {{ f.field(form.location_name, col='col-md-6', placeholder='e.g. Municipal market, gate 2') }}
+            {{ f.field(form.due_at, col='col-md-6', help='In your local time. Leave empty if there is no deadline.') }}
+            {{ f.field(form.address, col='col-12', rows=2) }}
+            <div class="col-12">
+              <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                <button type="button" id="task-locate" class="btn btn-soft btn-sm"><i class="bi bi-crosshair"></i> Use my current location</button>
+                <span class="pc-geo-status m-0" id="task-geo" aria-live="polite">Click the map to place a pin (optional).</span>
+              </div>
+              {{ ui.map_box('task-map', 280) }}
+            </div>
+            {{ f.coordinate_fields(form.latitude, form.longitude) }}
+            {{ f.field(form.volunteers_needed, col='col-md-4', help='How many volunteers can take part.') }}
+          </div>
+        </section>
+
+        <section class="pc-form-section">
+          <h3><i class="bi bi-link-45deg"></i> Linked records (optional)</h3>
+          <div class="row g-3">
+            {{ f.field(form.report_id, col='col-md-4') }}
+            {{ f.field(form.animal_id, col='col-md-4') }}
+            {{ f.field(form.shelter_id, col='col-md-4') }}
+          </div>
+        </section>
+
+        {% if form.volunteer_ids %}
+          <section class="pc-form-section">
+            <h3><i class="bi bi-people"></i> Assign volunteers now (optional)</h3>
+            {% if volunteers %}
+              <div class="vt-pick" role="group" aria-label="Volunteers to assign">
+                {% for v in volunteers %}
+                  <label>
+                    <input class="form-check-input" type="checkbox" name="volunteer_ids" value="{{ v.id }}"{{ ' checked' if v.id in (form.volunteer_ids.data or []) }}>
+                    <span><strong>{{ v.full_name }}</strong><small>{{ v.volunteer_profile.availability or 'Availability not given' }}</small></span>
+                  </label>
+                {% endfor %}
+              </div>
+              <div class="form-text">Chosen volunteers get a notification and can accept or decline. If you choose nobody, any approved volunteer can claim the task.</div>
+            {% else %}
+              <p class="text-secondary mb-0">No approved volunteer is available yet. Create the task anyway: approved volunteers can claim it later.</p>
+            {% endif %}
+            {% for e in form.volunteer_ids.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+          </section>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-2 pt-2">
+          {{ f.submit('Save changes' if task else 'Create task', 'bi-check2-circle', 'btn btn-primary btn-lg', 'Saving...') }}
+          <a class="btn btn-link" href="{{ url_for('tasks.detail', task_id=task.id) if task else url_for('tasks.manage') }}">Cancel</a>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="Good to know">
+    {% call ui.card('Good to know') %}
+      <div class="an-stack">
+        <div class="an-private"><i class="bi bi-megaphone"></i><div>Every approved volunteer is notified about a new task that still has free places.</div></div>
+        <div class="an-private"><i class="bi bi-person-check"></i><div>Volunteers must accept a task before they start. You can follow their progress on the task page.</div></div>
+        <div class="an-private"><i class="bi bi-geo-alt"></i><div>A map pin helps volunteers find the place. Without a pin they see the place name and address.</div></div>
+        <div class="an-private"><i class="bi bi-shield-lock"></i><div>Do not put private phone numbers in the text: everybody who can see the task can read it.</div></div>
+      </div>
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script src="{{ url_for('static', filename='js/task_form.js') }}"></script>
+{% endblock %}

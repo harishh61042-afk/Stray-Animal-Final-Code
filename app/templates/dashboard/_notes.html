@@ -1,0 +1,26 @@
+{# "Live notifications" box for the right-hand panel. Needs: notes (latest notifications), unread (count). #}
+{% import 'macros/ui.html' as ui %}
+{% set all_link %}<a class="pc-link-arrow" href="{{ url_for('notifications.index') }}">{{ ('All (' ~ unread ~ ' unread)') if unread else 'All' }} <i class="bi bi-arrow-right"></i></a>{% endset %}
+{% call ui.card('Live notifications', 'Updates for you, refreshed automatically', actions=all_link) %}
+  {% if notes %}
+    <ul class="db-note-list">
+      {% for n in notes %}
+        <li>
+          <form method="post" action="{{ url_for('notifications.mark_read', notification_id=n.id) }}">
+            {{ ui.csrf() }}
+            <button type="submit" class="db-note {{ 'unread' if not n.is_read }}">
+              <span class="db-note-icon"><i class="bi {{ n.icon }}"></i></span>
+              <span class="flex-grow-1" style="min-width:0">
+                <span class="db-note-title">{{ n.title }}</span>
+                <span class="db-note-text">{{ n.message }}</span>
+                <small>{{ n.created_at|timeago }}</small>
+              </span>
+            </button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="db-note-empty"><i class="bi bi-bell-slash"></i> No notifications yet. New updates will appear here.</p>
+  {% endif %}
+{% endcall %}

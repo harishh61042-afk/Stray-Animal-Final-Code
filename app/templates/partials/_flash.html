@@ -1,0 +1,12 @@
+{# Flash messages (success / danger / warning / info). Used by both layouts. #}
+{% set flash_icons = {'success': 'bi-check-circle-fill', 'danger': 'bi-exclamation-octagon-fill', 'warning': 'bi-exclamation-triangle-fill', 'info': 'bi-info-circle-fill'} %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    {% set cat = {'error': 'danger', 'message': 'info'}.get(category, category) %}
+    <div class="alert alert-{{ cat }} alert-dismissible fade show pc-alert" role="alert"{% if cat == 'success' %} data-autodismiss="6000"{% endif %}>
+      <i class="bi {{ flash_icons.get(cat, 'bi-info-circle-fill') }}"></i>
+      <div class="pc-alert-text">{{ message }}</div>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  {% endfor %}
+{% endwith %}

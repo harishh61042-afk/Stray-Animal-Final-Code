@@ -1,0 +1,66 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'dashboard/_lists.html' as lists %}
+{% set page_title = "Volunteer dashboard" %}
+{% set page_subtitle = "Your tasks and the hours you have given" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('tasks.mine') }}"><i class="bi bi-list-check"></i> My tasks</a>
+  {% if d.approved %}<a class="btn btn-primary" href="{{ url_for('tasks.available') }}"><i class="bi bi-search-heart"></i> Find tasks</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set hour = utcnow()|localdt('%H')|int %}
+{% set greeting = 'Good morning' if hour < 12 else ('Good afternoon' if hour < 17 else 'Good evening') %}
+{% set s = d.summary %}
+{% set open_now = s.assigned + s.accepted + s.in_progress %}
+{% set application = current_user.volunteer_profile %}
+<div class="db-wrap">
+  {% if not d.approved %}
+    <div class="alert alert-warning pc-alert mb-4" role="status"><i class="bi bi-hourglass-split"></i>
+      <div class="pc-alert-text"><strong>Your volunteer application is {{ (application.application_status if application else 'not submitted')|lower }}.</strong>
+        You can accept tasks as soon as an administrator approves it. <a class="fw-semibold" href="{{ url_for('volunteers.my_application') }}">See my application</a></div></div>
+  {% endif %}
+
+  <div class="db-kpis">
+    {{ ui.kpi('Tasks in progress', open_now, 'bi-hourglass-split', 'amber', None, None, 'up', (s.assigned ~ ' waiting for your reply') if s.assigned else 'Nothing waiting', url_for('tasks.mine')) }}
+    {{ ui.kpi('Tasks completed', s.completed, 'bi-check2-circle', 'green', d.completed_series[-8:], None, 'up', d.completed_this_month ~ ' this month', url_for('tasks.history')) }}
+    {{ ui.kpi('Hours volunteered', s.hours, 'bi-clock-history', 'teal', d.hours_series[-8:], None, 'up', 'Reported on completed tasks', url_for('tasks.history')) }}
+    {{ ui.kpi('Tasks you can join', d.available_count, 'bi-search-heart', 'blue', None, None, 'up', 'Open places right now' if d.approved else 'After approval', url_for('tasks.available') if d.approved else url_for('volunteers.my_application')) }}
+  </div>
+
+  <div class="db-row db-row-hero">
+    {% call ui.hero(greeting ~ ', ' ~ current_user.full_name.split(' ')[0],
+                    (open_now ~ ' task' ~ ('' if open_now == 1 else 's') ~ ' on your list') if open_now else 'No tasks on your list yet',
+                    'Open a task to accept it, update your progress or report your hours.' if open_now else ('There are ' ~ d.available_count ~ ' task' ~ ('' if d.available_count == 1 else 's') ~ ' with open places. Pick one that suits you.' if d.approved else 'Once an administrator approves your application, you can accept tasks here.'),
+                    'bi-people') %}
+      {% if d.approved %}<a class="btn btn-light" href="{{ url_for('tasks.available') }}">Find a task <i class="bi bi-arrow-up-right"></i></a>{% else %}<a class="btn btn-light" href="{{ url_for('volunteers.my_application') }}">My application <i class="bi bi-arrow-up-right"></i></a>{% endif %}
+      <a class="btn btn-glass" href="{{ url_for('tasks.mine') }}">My tasks</a>
+    {% endcall %}
+
+    {% call ui.card('Hours volunteered', 'Hours on tasks you completed, last 12 months') %}
+      <div class="db-bignum mb-2">{{ s.hours }} <small>hours in total</small></div>
+      {{ ui.chart('chart-hours', d.chart, 200) }}
+    {% endcall %}
+  </div>
+
+  {% call ui.card('My current tasks', 'Tasks assigned to you or accepted by you') %}
+    {{ lists.task_rows(d.current, 'bi-list-check', 'No current tasks', 'Tasks you accept or are assigned will be listed here.') }}
+  {% endcall %}
+</div>
+{% endblock %}
+
+{% block right_rail %}
+  {% include 'dashboard/_notes.html' %}
+  {% call ui.card('Quick actions') %}
+    <div class="db-quick">
+      {% if d.approved %}<a href="{{ url_for('tasks.available') }}"><i class="bi bi-search-heart"></i> Find tasks</a>{% endif %}
+      <a href="{{ url_for('tasks.mine') }}"><i class="bi bi-list-check"></i> My tasks</a>
+      <a href="{{ url_for('tasks.history') }}"><i class="bi bi-clock-history"></i> Task history</a>
+      <a href="{{ url_for('volunteers.my_application') }}"><i class="bi bi-clipboard-check"></i> My application</a>
+      <a href="{{ url_for('account.profile') }}"><i class="bi bi-person-circle"></i> My profile</a>
+    </div>
+  {% endcall %}
+{% endblock %}
+
+{% block scripts %}{{ ui.chart_scripts() }}{% endblock %}

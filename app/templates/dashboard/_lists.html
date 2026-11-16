@@ -1,0 +1,122 @@
+{# Row lists used by several dashboards. Import with:  {% import 'dashboard/_lists.html' as lists %} #}
+{% import 'macros/ui.html' as ui %}
+
+{% macro assignment_rows(items, empty_icon, empty_title, empty_text) %}
+  {% if items %}
+    {% for a in items %}
+      <div class="db-row-item">
+        <span class="pc-icon-circle"><i class="bi bi-geo-alt"></i></span>
+        <div class="db-row-main">
+          <a class="strong" href="{{ url_for('reports.detail', report_id=a.report_id) }}">{{ a.report.animal_type }} &middot; {{ a.report.report_code }}</a>
+          <small>{{ a.report.location_name }}{% if a.deadline %} &middot; due {{ a.deadline|localdt('%d %b, %I:%M %p') }}{% endif %}</small>
+        </div>
+        <div class="db-row-side">{{ ui.emergency_badge(a.report.emergency_level) }}{% if a.is_overdue %}<div class="text-danger fw-semibold mt-1">Overdue</div>{% endif %}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {{ ui.empty_state(empty_icon, empty_title, empty_text) }}
+  {% endif %}
+{% endmacro %}
+
+{% macro task_rows(items, empty_icon, empty_title, empty_text) %}
+  {% if items %}
+    {% for a in items %}
+      <div class="db-row-item">
+        <span class="pc-icon-circle"><i class="bi bi-list-check"></i></span>
+        <div class="db-row-main">
+          <a class="strong" href="{{ url_for('tasks.detail', task_id=a.task_id) }}">{{ a.task.title }}</a>
+          <small>{{ a.task.task_type }}{% if a.task.due_at %} &middot; due {{ a.task.due_at|localdt('%d %b, %I:%M %p') }}{% endif %}</small>
+          {% if a.status in (C.TA_ACCEPTED, C.TA_IN_PROGRESS) %}{{ ui.progress(a.progress_percent, 'green', 6) }}{% endif %}
+        </div>
+        <div class="db-row-side">{{ ui.status_badge(a.status) }}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {{ ui.empty_state(empty_icon, empty_title, empty_text) }}
+  {% endif %}
+{% endmacro %}
+
+{% macro animal_rows(animals, endpoint, empty_icon, empty_title, empty_text) %}
+  {% if animals %}
+    {% for a in animals %}
+      <div class="db-row-item">
+        {{ ui.img(animal_image_url(a), a.display_name, class_='db-thumb', fallback=placeholder_url(a.animal_type)) }}
+        <div class="db-row-main">
+          <a class="strong" href="{{ url_for(endpoint, animal_id=a.id) }}">{{ a.display_name }}</a>
+          <small>{{ a.animal_type }} &middot; {{ a.animal_code }}</small>
+        </div>
+        <div class="db-row-side">{{ ui.status_badge(a.medical_status) }}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {{ ui.empty_state(empty_icon, empty_title, empty_text) }}
+  {% endif %}
+{% endmacro %}
+
+{% macro application_rows(applications, empty_icon, empty_title, empty_text) %}
+  {% if applications %}
+    {% for a in applications %}
+      <div class="db-row-item">
+        {{ ui.img(animal_image_url(a.animal), a.animal.display_name, class_='db-thumb', fallback=placeholder_url(a.animal.animal_type)) }}
+        <div class="db-row-main">
+          <a class="strong" href="{{ url_for('adoption.detail', application_id=a.id) }}">{{ a.animal.display_name }}</a>
+          <small>{{ a.application_code }} &middot; {{ a.created_at|timeago }}</small>
+        </div>
+        <div class="db-row-side">{{ ui.status_badge(a.status) }}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {{ ui.empty_state(empty_icon, empty_title, empty_text) }}
+  {% endif %}
+{% endmacro %}
+
+{% macro vaccination_rows(items, today, empty_icon, empty_title, empty_text) %}
+  {% if items %}
+    {% for v in items %}
+      <div class="db-row-item">
+        <span class="pc-icon-circle"><i class="bi bi-shield-plus"></i></span>
+        <div class="db-row-main">
+          <a class="strong" href="{{ url_for('medical.animal_profile', animal_id=v.animal_id) }}">{{ v.animal.display_name }}</a>
+          <small>{{ v.vaccine_name }} &middot; due {{ v.next_due_date|localdate }}</small>
+        </div>
+        <div class="db-row-side">{{ ui.status_badge('Overdue', 'danger') if v.next_due_date < today else ui.status_badge('Due soon', 'warning') }}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {{ ui.empty_state(empty_icon, empty_title, empty_text) }}
+  {% endif %}
+{% endmacro %}
+
+{% macro follow_up_rows(items, today, empty_icon, empty_title, empty_text) %}
+  {% if items %}
+    {% for r in items %}
+      <div class="db-row-item">
+        <span class="pc-icon-circle"><i class="bi bi-clipboard2-pulse"></i></span>
+        <div class="db-row-main">
+          <a class="strong" href="{{ url_for('medical.record_detail', record_id=r.id) }}">{{ r.animal.display_name }}</a>
+          <small>Follow-up {{ r.follow_up_date|localdate }}{% if r.diagnosis %} &middot; {{ r.diagnosis|truncate(40) }}{% endif %}</small>
+        </div>
+        <div class="db-row-side">{{ ui.status_badge('Overdue', 'danger') if r.follow_up_date < today else ui.status_badge('Soon', 'warning') }}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {{ ui.empty_state(empty_icon, empty_title, empty_text) }}
+  {% endif %}
+{% endmacro %}
+
+{% macro admission_rows(items, empty_icon, empty_title, empty_text) %}
+  {% if items %}
+    {% for adm in items %}
+      <div class="db-row-item">
+        {{ ui.img(animal_image_url(adm.animal), adm.animal.display_name, class_='db-thumb', fallback=placeholder_url(adm.animal.animal_type)) }}
+        <div class="db-row-main">
+          <a class="strong" href="{{ url_for('animals.detail', animal_id=adm.animal_id) }}">{{ adm.animal.display_name }}</a>
+          <small>Admitted {{ adm.admitted_at|localdt('%d %b %Y') }}</small>
+        </div>
+        <div class="db-row-side">{{ ui.status_badge('Current', 'success') if adm.is_current else ui.status_badge('Discharged', 'secondary') }}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    {{ ui.empty_state(empty_icon, empty_title, empty_text) }}
+  {% endif %}
+{% endmacro %}

@@ -1,0 +1,91 @@
+{% extends "layouts/app.html" if current_user.is_authenticated else "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'shelters/_macros.html' as sm %}
+{% set page_title = "Shelter directory" %}
+{% set page_subtitle = "Verified shelters that take in and rehome rescued animals" %}
+{% set crumbs = [("Shelters", None), ("Shelter directory", None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+{% endblock %}
+
+{% block content %}
+{% if not current_user.is_authenticated %}
+<section class="pb-page-head">
+  <div class="container-xxl">
+    <span class="pb-eyebrow"><i class="bi bi-house-heart"></i> Shelters</span>
+    <h1>Shelter directory</h1>
+    <p>Every shelter listed here has been verified by a PawConnect administrator. See how many places are free and how to reach them.</p>
+  </div>
+</section>
+{% endif %}
+<div class="{{ '' if current_user.is_authenticated else 'container-xxl py-4' }}">
+  <div class="vstack gap-4">
+    <form method="get" class="pb-filter-card pc-filters" role="search" aria-label="Filter shelters">
+      {{ ui.search_filter('q', q, 'Shelter name, city or address') }}
+      {{ ui.select_filter('city', 'City', cities, city) }}
+      <div class="pc-filter d-flex align-items-end">
+        <div class="form-check pc-check mb-2">
+          <input class="form-check-input" type="checkbox" name="space" value="1" id="f-space"{{ ' checked' if with_space }} data-auto-submit>
+          <label class="form-check-label" for="f-space">Only with free places</label>
+        </div>
+      </div>
+      <div class="pc-filter d-flex align-items-end gap-2">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+        {% if q or city or with_space %}<a class="btn btn-outline-secondary" href="{{ url_for('shelters.directory') }}">Clear</a>{% endif %}
+      </div>
+    </form>
+
+    {% if markers %}
+      {% call ui.card('Shelters on the map', (markers|length) ~ ' with a map pin') %}
+        {{ ui.map_box('shelter-directory-map', 360) }}
+        <p class="an-chart-note">Green pins have free places, red pins are full. Click a pin to open the shelter's page.</p>
+      {% endcall %}
+    {% endif %}
+
+    {% if pagination.items %}
+      <div class="an-shelter-grid">
+        {% for s in pagination.items %}
+          <a class="an-shelter-card" href="{{ url_for('shelters.detail', shelter_id=s.id) }}">
+            <div>
+              <h3>{{ s.shelter_name }}</h3>
+              <div class="an-mini">{{ s.city or 'Location not given' }}{% if s.state %}, {{ s.state }}{% endif %}</div>
+            </div>
+            <div class="an-shelter-meta">
+              {% if s.address %}<span><i class="bi bi-geo-alt"></i>{{ s.address|truncate(70) }}</span>{% endif %}
+              {% if s.contact_phone %}<span><i class="bi bi-telephone"></i>{{ s.contact_phone }}</span>{% endif %}
+              <span><i class="bi bi-balloon-heart"></i>{{ adoptable.get(s.id, 0) }} animal{{ '' if adoptable.get(s.id, 0) == 1 else 's' }} looking for a home</span>
+            </div>
+            {{ sm.occupancy(s, counts.get(s.id, 0)) }}
+          </a>
+        {% endfor %}
+      </div>
+      <div>{{ ui.pagination(pagination) }}</div>
+    {% else %}
+      <div class="pc-card"><div class="pc-card-body">
+        {% if q or city or with_space %}
+          {{ ui.empty_state('bi-search', 'No shelters match your search', 'Try another city or clear the filters.', url_for('shelters.directory'), 'Clear all filters') }}
+        {% else %}
+          {{ ui.empty_state('bi-house-heart', 'No shelters are listed yet', 'Shelters appear here after they register and an administrator has verified them.',
+                            url_for('auth.register', role=C.ROLE_SHELTER) if not current_user.is_authenticated else None, 'Register your shelter' if not current_user.is_authenticated else None) }}
+        {% endif %}
+      </div></div>
+    {% endif %}
+  </div>
+</div>
+<script type="application/json" id="shelter-markers">{{ markers|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script>
+    (function () {
+      var holder = document.getElementById('shelter-markers');
+      if (!holder || !document.getElementById('shelter-directory-map') || !window.PawMap) { return; }
+      var markers = [];
+      try { markers = JSON.parse(holder.textContent || '[]'); } catch (e) { markers = []; }
+      window.PawMap.viewer({ id: 'shelter-directory-map', markers: markers, emptyText: 'No shelter has set a map location yet.' });
+    })();
+  </script>
+{% endblock %}

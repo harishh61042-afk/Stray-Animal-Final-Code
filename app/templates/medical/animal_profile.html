@@ -1,0 +1,133 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Medical file" %}
+{% set page_subtitle = animal.display_name ~ ' · ' ~ animal.animal_code %}
+{% set crumbs = [("Medical records", url_for('medical.index')), (animal.display_name, None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}
+  {% if can_open_animal %}<a class="btn btn-outline-primary" href="{{ url_for('animals.detail', animal_id=animal.id) }}"><i class="bi bi-heart"></i> Animal record</a>{% endif %}
+  {% if can_write %}
+    <a class="btn btn-outline-primary" href="{{ url_for('medical.add_vaccination', animal_id=animal.id) }}"><i class="bi bi-shield-plus"></i> Add vaccination</a>
+    <a class="btn btn-primary" href="{{ url_for('medical.add_record', animal_id=animal.id) }}"><i class="bi bi-plus-lg"></i> Add examination</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div class="an-main">
+
+    {% call ui.card() %}
+      <div class="an-hero">
+        <div class="an-hero-photo">{{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, fallback=placeholder_url(animal.animal_type)) }}</div>
+        <div>
+          <div class="an-code">{{ animal.animal_code }}</div>
+          <h2>{{ animal.display_name }}</h2>
+          <div class="an-badges">{{ ui.status_badge(animal.status) }}{{ ui.status_badge(animal.medical_status) }}{{ ui.status_badge(animal.vaccination_status) }}</div>
+          <div class="an-facts">
+            <div class="an-fact"><small>Type</small><strong>{{ animal.animal_type }}{% if animal.breed %} &middot; {{ animal.breed }}{% endif %}</strong></div>
+            <div class="an-fact"><small>Age</small><strong>{{ animal.age_display }}</strong></div>
+            <div class="an-fact"><small>Latest weight</small><strong>{% if latest_weight %}{{ '%.1f'|format(latest_weight.weight_kg) }} kg{% else %}Not recorded{% endif %}</strong></div>
+            <div class="an-fact"><small>Veterinarian</small><strong>{{ animal.veterinarian.full_name if animal.veterinarian else 'Not assigned' }}</strong></div>
+            <div class="an-fact"><small>Shelter</small><strong>{{ animal.shelter.shelter_name if animal.shelter else 'Not placed' }}</strong></div>
+            <div class="an-fact"><small>Next vaccine dose</small>
+              <strong class="{{ 'an-overdue' if next_due and next_due < today }}">{% if next_due %}{{ next_due|localdate }}{% if next_due < today %} (overdue){% endif %}{% else %}None planned{% endif %}</strong></div>
+          </div>
+        </div>
+      </div>
+    {% endcall %}
+
+    {% if animal.is_adopted %}
+      <div class="alert alert-info pc-alert mb-0" role="note"><i class="bi bi-house-heart"></i>
+        <div class="pc-alert-text"><strong>This animal has been adopted.</strong> The medical file is closed and kept for reference.</div></div>
+    {% elif can_claim %}
+      <div class="alert alert-warning pc-alert mb-0" role="note"><i class="bi bi-question-circle"></i>
+        <div class="pc-alert-text d-flex flex-wrap align-items-center justify-content-between gap-2 w-100">
+          <span><strong>No veterinarian looks after {{ animal.display_name }} yet.</strong> Take the case to add examinations and vaccinations.</span>
+          {{ ui.confirm_form(url_for('animals.claim', animal_id=animal.id, next=url_for('medical.animal_profile', animal_id=animal.id)), 'Take this case', 'Take over the medical care of ' ~ animal.display_name ~ '?', 'btn btn-sm btn-primary', 'bi-clipboard2-plus') }}
+        </div></div>
+    {% elif not can_write and current_user.role == C.ROLE_VETERINARIAN %}
+      <div class="alert alert-info pc-alert mb-0" role="note"><i class="bi bi-info-circle"></i>
+        <div class="pc-alert-text">{{ animal.display_name }} is looked after by {{ animal.veterinarian.full_name if animal.veterinarian else 'another veterinarian' }}. You can read the file, but only the assigned veterinarian or an administrator can add records.</div></div>
+    {% endif %}
+
+    {% if chart %}
+      {% call ui.card('Weight over time', 'From the weights noted at each examination') %}
+        {{ ui.chart('weight-chart', chart, 240) }}
+      {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Examinations', ((records|length) ~ ' on file') if records else 'Nothing recorded yet') %}
+      {% if records %}
+        {% for r in records %}
+          <article class="an-record" style="--c: {{ 'var(--tone-danger)' if r.medical_status == C.MEDICAL_CRITICAL else ('var(--tone-warning)' if r.medical_status == C.MEDICAL_TREATMENT else 'var(--pc-primary)') }}">
+            <div class="an-record-head">
+              <div>
+                <h3>{{ r.examination_date|localdate }}</h3>
+                <div class="an-mini">Examined by {{ r.veterinarian.full_name if r.veterinarian else 'a veterinarian' }}{% if r.weight_kg %} &middot; {{ '%.1f'|format(r.weight_kg) }} kg{% endif %}</div>
+              </div>
+              {{ ui.status_badge(r.medical_status) }}
+            </div>
+            <dl>
+              <dt>Diagnosis</dt><dd>{{ r.diagnosis|truncate(220) }}</dd>
+              {% if r.treatment %}<dt>Treatment</dt><dd>{{ r.treatment|truncate(220) }}</dd>{% endif %}
+              {% if r.medicines %}<dt>Medicines</dt><dd>{{ r.medicines|truncate(220) }}</dd>{% endif %}
+              {% if r.follow_up_date %}<dt>Follow-up</dt><dd class="{{ 'an-overdue' if r.follow_up_date < today and loop.first }}">{{ r.follow_up_date|localdate }}</dd>{% endif %}
+            </dl>
+            <div class="an-record-actions">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('medical.record_detail', record_id=r.id) }}">Full record</a>
+              {% if r.document_filename %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('files.medical_document', record_id=r.id) }}"><i class="bi bi-paperclip"></i> Report</a>{% endif %}
+              {% if can_write %}<a class="btn btn-sm btn-outline-secondary" href="{{ url_for('medical.edit_record', record_id=r.id) }}"><i class="bi bi-pencil"></i> Edit</a>{% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      {% else %}
+        {% if can_write %}
+          {{ ui.empty_state('bi-clipboard2-pulse', 'No examination yet', 'Record the first examination to start the medical file.', url_for('medical.add_record', animal_id=animal.id), 'Add an examination') }}
+        {% else %}
+          {{ ui.empty_state('bi-clipboard2-pulse', 'No examination yet', 'The veterinarian has not recorded an examination for this animal.') }}
+        {% endif %}
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="Vaccinations">
+    {% call ui.card('Vaccinations', animal.vaccination_status) %}
+      {% if vaccinations %}
+        <div class="table-responsive">
+          <table class="table pc-table align-middle mb-0">
+            <thead><tr><th>Vaccine</th><th>Given</th><th>Next dose</th>{% if can_write %}<th></th>{% endif %}</tr></thead>
+            <tbody>
+              {% for v in vaccinations %}
+                <tr>
+                  <td><strong>{{ v.vaccine_name }}</strong>{% if v.batch_number %}<span class="an-mini">Batch {{ v.batch_number }}</span>{% endif %}</td>
+                  <td>{{ v.vaccination_date|localdate }}</td>
+                  <td>{% if v.next_due_date %}<span class="{{ 'an-overdue' if v.next_due_date < today else '' }}">{{ v.next_due_date|localdate }}</span>{% else %}<span class="text-body-tertiary">&mdash;</span>{% endif %}</td>
+                  {% if can_write %}
+                    <td class="text-end">
+                      <form method="post" action="{{ url_for('medical.delete_vaccination', vaccination_id=v.id) }}" class="d-inline" data-confirm="Remove the {{ v.vaccine_name }} record from {{ v.vaccination_date|localdate }}?">
+                        {{ ui.csrf() }}<button class="btn btn-sm btn-outline-danger" type="submit" title="Remove this record" aria-label="Remove the {{ v.vaccine_name }} record"><i class="bi bi-trash"></i></button>
+                      </form>
+                    </td>
+                  {% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-secondary mb-0">No vaccination has been recorded yet.</p>
+      {% endif %}
+      {% if can_write %}
+        <a class="btn btn-primary w-100 mt-3" href="{{ url_for('medical.add_vaccination', animal_id=animal.id) }}"><i class="bi bi-shield-plus"></i> Add a vaccination</a>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card('Who can see this') %}
+      <div class="an-private"><i class="bi bi-lock"></i>
+        <div>The medical file is private. It is visible to administrators, veterinarians, the shelter that houses the animal and the rescuer who brought it in. It is never shown to the public.</div></div>
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}{% if chart %}{{ ui.chart_scripts() }}{% endif %}{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'dashboard/_lists.html' as lists %}
+{% set page_title = "Shelter dashboard" %}
+{% set page_subtitle = d.shelter.shelter_name if d.shelter else "Your shelter" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('shelters.my_profile') }}"><i class="bi bi-house-gear"></i> Shelter profile</a>
+  <a class="btn btn-primary" href="{{ url_for('animals.new') }}"><i class="bi bi-plus-lg"></i> Add an animal</a>
+{% endblock %}
+
+{% block content %}
+<div class="db-wrap">
+{% if not d.shelter %}
+  {% call ui.card() %}
+    {{ ui.empty_state('bi-house-exclamation', 'Your shelter profile is missing', 'Please contact an administrator so your shelter details can be set up.', url_for('public.contact'), 'Contact us') }}
+  {% endcall %}
+{% else %}
+  {% set ring_tone = '#e5484d' if d.percent >= 90 else ('#f59f00' if d.percent >= 70 else '#1f9d63') %}
+  <div class="db-kpis">
+    {{ ui.kpi('Animals in your shelter', d.count, 'bi-house-heart', 'teal', None, None, 'up', ('of ' ~ d.capacity ~ ' places') , url_for('animals.index')) }}
+    {{ ui.kpi('Ready for adoption', d.available, 'bi-balloon-heart', 'green', None, None, 'up', 'Listed on the adoption page', url_for('animals.index', status=C.ANIMAL_AVAILABLE)) }}
+    {{ ui.kpi('Adoption requests', d.pending_count, 'bi-clipboard-check', 'amber', None, None, 'up', 'Waiting for a decision', url_for('adoption.manage')) }}
+    {{ ui.kpi('Admitted this month', d.admitted_this_month, 'bi-box-arrow-in-down', 'blue', d.admission_series[-8:], None, 'up', d.adopted_total ~ ' adopted in total', url_for('shelters.admissions')) }}
+  </div>
+
+  <div class="db-row db-row-hero">
+    {% call ui.card('Capacity', 'How full the shelter is') %}
+      <div class="d-flex flex-wrap align-items-center gap-4 justify-content-center">
+        <div class="db-ring" style="--p:{{ d.percent }};--c:{{ ring_tone }}"><span>{{ d.percent }}%<small>full</small></span></div>
+        <div>
+          <div class="db-bignum">{{ d.free }} <small>free</small></div>
+          <div class="db-sub mb-2">{{ d.count }} of {{ d.capacity }} places in use</div>
+          {% if d.percent >= 90 %}<span class="pc-badge pc-badge-danger"><i class="pc-badge-dot"></i>Almost full</span>
+          {% elif d.percent >= 70 %}<span class="pc-badge pc-badge-warning"><i class="pc-badge-dot"></i>Filling up</span>
+          {% else %}<span class="pc-badge pc-badge-success"><i class="pc-badge-dot"></i>Space available</span>{% endif %}
+        </div>
+      </div>
+    {% endcall %}
+
+    {% call ui.card('Admissions and adoptions', 'Last 12 months') %}
+      <div class="db-legend-inline mb-2"><span><i style="--c:#1f9d63"></i>Admitted</span><span><i style="--c:#8b5cf6"></i>Adopted</span></div>
+      {{ ui.chart('chart-shelter', d.chart, 220) }}
+    {% endcall %}
+  </div>
+
+  <div class="db-row db-row-3">
+    {% call ui.card('Residents by status', 'Animals currently in your shelter') %}
+      {% if d.count %}
+        {{ ui.chart('chart-residents', d.status_chart, 190) }}
+        <ul class="db-legend">{% for item in d.status_legend %}<li style="--c:{{ item.color }}">{{ item.label }}<strong>{{ item.value }}</strong></li>{% endfor %}</ul>
+      {% else %}
+        {{ ui.empty_state('bi-house', 'No animals yet', 'Animals assigned to your shelter are counted here.') }}
+      {% endif %}
+    {% endcall %}
+    {% call ui.card('Adoption requests', 'Newest first') %}
+      {{ lists.application_rows(d.pending, 'bi-clipboard-check', 'No pending requests', 'Applications for your animals appear here.') }}
+    {% endcall %}
+    {% call ui.card('Recent admissions', 'Latest animals taken in') %}
+      {{ lists.admission_rows(d.recent_admissions, 'bi-box-arrow-in-down', 'No admissions yet', 'Animals admitted to your shelter are listed here.') }}
+    {% endcall %}
+  </div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block right_rail %}
+  {% include 'dashboard/_notes.html' %}
+  {% call ui.card('Quick actions') %}
+    <div class="db-quick">
+      <a href="{{ url_for('animals.new') }}"><i class="bi bi-plus-lg"></i> Add an animal</a>
+      <a href="{{ url_for('animals.index') }}"><i class="bi bi-heart"></i> Animals</a>
+      <a href="{{ url_for('shelters.admissions') }}"><i class="bi bi-box-arrow-in-down"></i> Admissions</a>
+      <a href="{{ url_for('adoption.manage') }}"><i class="bi bi-balloon-heart"></i> Adoption requests</a>
+      <a href="{{ url_for('shelters.my_profile') }}"><i class="bi bi-house-gear"></i> Shelter profile</a>
+      <a href="{{ url_for('account.profile') }}"><i class="bi bi-person-circle"></i> My profile</a>
+    </div>
+  {% endcall %}
+{% endblock %}
+
+{% block scripts %}{{ ui.chart_scripts() }}{% endblock %}

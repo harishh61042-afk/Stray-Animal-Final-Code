@@ -1,0 +1,65 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Examination of " ~ (record.examination_date|localdate) %}
+{% set page_subtitle = animal.display_name ~ ' · ' ~ animal.animal_code %}
+{% set crumbs = [("Medical records", url_for('medical.index')), (animal.display_name, url_for('medical.animal_profile', animal_id=animal.id)), ("Examination", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('medical.animal_profile', animal_id=animal.id) }}"><i class="bi bi-arrow-left"></i> Medical file</a>
+  {% if can_write %}<a class="btn btn-primary" href="{{ url_for('medical.edit_record', record_id=record.id) }}"><i class="bi bi-pencil"></i> Edit</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div class="an-main">
+    {% call ui.card('Examination', 'Examined by ' ~ (record.veterinarian.full_name if record.veterinarian else 'a veterinarian')) %}
+      <div class="an-badges mt-0 mb-3">{{ ui.status_badge(record.medical_status) }}</div>
+      <div class="an-record" style="border: 0; padding: 0; --c: transparent">
+        <dl style="margin-top: 0">
+          <dt>Date</dt><dd>{{ record.examination_date|localdate }}</dd>
+          <dt>Weight</dt><dd>{% if record.weight_kg %}{{ '%.1f'|format(record.weight_kg) }} kg{% else %}<span class="text-body-tertiary">Not recorded</span>{% endif %}</dd>
+          <dt>Symptoms</dt><dd>{% if record.symptoms %}{{ record.symptoms|nl2br }}{% else %}<span class="text-body-tertiary">None noted</span>{% endif %}</dd>
+          <dt>Diagnosis</dt><dd>{{ record.diagnosis|nl2br }}</dd>
+          <dt>Treatment</dt><dd>{% if record.treatment %}{{ record.treatment|nl2br }}{% else %}<span class="text-body-tertiary">None noted</span>{% endif %}</dd>
+          <dt>Medicines</dt><dd>{% if record.medicines %}{{ record.medicines|nl2br }}{% else %}<span class="text-body-tertiary">None noted</span>{% endif %}</dd>
+          <dt>Follow-up</dt><dd>{% if record.follow_up_date %}{{ record.follow_up_date|localdate }}{% else %}<span class="text-body-tertiary">Not planned</span>{% endif %}</dd>
+          {% if record.notes %}<dt>Private notes</dt><dd>{{ record.notes|nl2br }}</dd>{% endif %}
+        </dl>
+      </div>
+      {% if record.document_filename %}
+        <div class="an-record-actions">
+          <a class="btn btn-outline-primary" href="{{ url_for('files.medical_document', record_id=record.id) }}"><i class="bi bi-paperclip"></i> {{ record.document_original_name or 'Open the attached report' }}</a>
+        </div>
+      {% endif %}
+    {% endcall %}
+
+    {% if record.vaccinations %}
+      {% call ui.card('Vaccinations given at this visit') %}
+        <ul class="list-unstyled mb-0">
+          {% for v in record.vaccinations %}
+            <li class="mb-1"><i class="bi bi-shield-check text-success"></i> <strong>{{ v.vaccine_name }}</strong> &middot; {{ v.vaccination_date|localdate }}{% if v.next_due_date %} &middot; next dose {{ v.next_due_date|localdate }}{% endif %}</li>
+          {% endfor %}
+        </ul>
+      {% endcall %}
+    {% endif %}
+  </div>
+
+  <aside class="an-side" aria-label="About this record">
+    {% call ui.card(animal.display_name) %}
+      <div class="an-hero-photo mb-3">{{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, fallback=placeholder_url(animal.animal_type)) }}</div>
+      <div class="an-badges mt-0 mb-2">{{ ui.status_badge(animal.status) }}{{ ui.status_badge(animal.medical_status) }}</div>
+      {{ ui.kv('Type', animal.animal_type ~ (' · ' ~ animal.breed if animal.breed else '')) }}
+      {{ ui.kv('Age', animal.age_display) }}
+      {{ ui.kv('Vaccination', animal.vaccination_status) }}
+    {% endcall %}
+    {% call ui.card('Record history') %}
+      {{ ui.kv('Created', record.created_at|localdt, 'bi-plus-circle') }}
+      {{ ui.kv('Created by', record.creator.full_name if record.creator else None, 'bi-person') }}
+      {% if record.updated_by %}
+        {{ ui.kv('Last changed', record.updated_at|localdt, 'bi-pencil') }}
+        {{ ui.kv('Changed by', record.updater.full_name if record.updater else None, 'bi-person') }}
+      {% endif %}
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Incoming reports" %}
+{% set page_subtitle = "Most urgent and oldest first" if status in ['open', 'Pending', 'Under Review', 'Assigned', 'Rescue in Progress'] else "Rescue reports" %}
+{% set crumbs = [("Rescue", None), ("Incoming reports", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">{% endblock %}
+{% block page_actions %}
+  {% if not is_admin %}<a class="btn btn-outline-primary" href="{{ url_for('rescue.my_cases') }}"><i class="bi bi-life-preserver"></i> My cases</a>{% endif %}
+  <a class="btn btn-primary" href="{{ url_for('maps.overview') }}"><i class="bi bi-geo-alt"></i> Rescue map</a>
+{% endblock %}
+
+{% block content %}
+{% call ui.card(flush=True) %}
+  <div class="rp-tabs">
+    <div class="pc-seg" aria-label="Filter by status">
+      <a href="{{ url_with(status='open', page=None) }}" class="{{ 'active' if status == 'open' }}">Open ({{ open_total }})</a>
+      {% for s in C.REPORT_STATUSES %}{% if counts[s] or status == s %}
+        <a href="{{ url_with(status=s, page=None) }}" class="{{ 'active' if status == s }}">{{ s }} ({{ counts[s] }})</a>
+      {% endif %}{% endfor %}
+      <a href="{{ url_with(status='all', page=None) }}" class="{{ 'active' if status == 'all' }}">All</a>
+    </div>
+  </div>
+  <form method="get" class="pc-filters" role="search">
+    <input type="hidden" name="status" value="{{ status }}">
+    {{ ui.search_filter('q', q, 'Code, place or description') }}
+    {{ ui.select_filter('emergency', 'Urgency', C.EMERGENCY_LEVELS, emergency) }}
+    {{ ui.select_filter('type', 'Animal', C.ANIMAL_TYPES, animal_type) }}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q or emergency or animal_type %}<a class="btn btn-link" href="{{ url_with(q=None, emergency=None, type=None, page=None) }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead><tr><th>Report</th><th>Location</th><th>Urgency</th><th>Status</th><th>Rescuer</th><th>Reported</th><th class="text-end">Action</th></tr></thead>
+        <tbody>
+          {% for r in pagination.items %}
+            {% set current = r.active_assignment %}
+            <tr>
+              <td>
+                <a class="fw-semibold" href="{{ url_for('reports.detail', report_id=r.id) }}">{{ r.report_code }}</a>
+                <span class="rp-mini">{{ r.animal_type }}{% if r.animal_count > 1 %} &times; {{ r.animal_count }}{% endif %} &middot; {{ r.animal_condition }}</span>
+              </td>
+              <td>{{ r.location_name }}{% if r.has_location %} <i class="bi bi-geo-alt-fill text-success" title="Pinned on the map"></i>{% endif %}</td>
+              <td>{{ ui.emergency_badge(r.emergency_level) }}</td>
+              <td>{{ ui.status_badge(r.status) }}</td>
+              <td>
+                {% if current %}
+                  {{ ui.person(current.rescuer.full_name, current.status, 30) }}
+                  {% if current.is_overdue %}<span class="rp-overdue small">Overdue</span>{% endif %}
+                {% else %}<span class="text-body-tertiary">Nobody yet</span>{% endif %}
+              </td>
+              <td><span title="{{ r.created_at|localdt }}">{{ r.created_at|timeago }}</span></td>
+              <td class="text-end">
+                {% if is_admin and r.status in [C.REPORT_PENDING, C.REPORT_UNDER_REVIEW] and rescuers %}
+                  <form class="rp-inline-assign mb-1" method="post" action="{{ url_for('rescue.assign', report_id=r.id) }}">
+                    {{ ui.csrf() }}<input type="hidden" name="next" value="{{ url_with() }}">
+                    <select class="form-select form-select-sm" name="rescuer_id" required aria-label="Rescuer for {{ r.report_code }}">
+                      <option value="">Assign to...</option>
+                      {% for u in rescuers %}<option value="{{ u.id }}">{{ u.full_name }} ({{ workload.get(u.id, 0) }} open)</option>{% endfor %}
+                    </select>
+                    <button class="btn btn-sm btn-primary" type="submit" data-loading>Assign</button>
+                  </form>
+                {% endif %}
+                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('reports.detail', report_id=r.id) }}">Open</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q or emergency or animal_type or status != 'open' %}
+      {{ ui.empty_state('bi-funnel', 'No reports match these filters', 'Try another status or clear the search.', url_for('rescue.manage'), 'Show open reports') }}
+    {% else %}
+      {{ ui.empty_state('bi-check2-circle', 'No open reports', 'Every report has been dealt with. New reports appear here as soon as someone sends them.') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

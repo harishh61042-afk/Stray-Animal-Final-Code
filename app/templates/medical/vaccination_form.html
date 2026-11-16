@@ -1,0 +1,60 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Add a vaccination" %}
+{% set page_subtitle = animal.display_name ~ ' · ' ~ animal.animal_code %}
+{% set crumbs = [("Medical records", url_for('medical.index')), (animal.display_name, url_for('medical.animal_profile', animal_id=animal.id)), ("Add a vaccination", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}<a class="btn btn-outline-primary" href="{{ url_for('medical.animal_profile', animal_id=animal.id) }}"><i class="bi bi-arrow-left"></i> Medical file</a>{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div>
+    {% call ui.card('Vaccination', 'Record a dose that was given.') %}
+      <form method="post" novalidate class="an-form">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+        <div class="row g-3">
+          {{ f.field(form.vaccine_name, col='col-md-6', autofocus=True) }}
+          <div class="col-md-6" id="custom-vaccine" {{ 'hidden' if form.vaccine_name.data != 'Other' and not form.custom_name.errors }}>
+            {{ f.field(form.custom_name, placeholder='e.g. Canine influenza') }}
+          </div>
+          {{ f.field(form.vaccination_date, col='col-md-6') }}
+          {{ f.field(form.next_due_date, col='col-md-6', help='Leave empty when no further dose is needed. You will be reminded when it is due.') }}
+          {{ f.field(form.batch_number, col='col-md-6', placeholder='From the vial label') }}
+          {{ f.field(form.notes, col='col-12', rows=2) }}
+        </div>
+        <div class="d-flex flex-wrap gap-2 pt-3">
+          {{ f.submit('Save vaccination', 'bi-shield-plus', 'btn btn-primary btn-lg', 'Saving...') }}
+          <a class="btn btn-link" href="{{ url_for('medical.animal_profile', animal_id=animal.id) }}">Cancel</a>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+  <aside class="an-side" aria-label="About this animal">
+    {% call ui.card(animal.display_name) %}
+      <div class="an-hero-photo mb-3">{{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, fallback=placeholder_url(animal.animal_type)) }}</div>
+      <div class="an-badges mt-0 mb-2">{{ ui.status_badge(animal.vaccination_status) }}</div>
+      {% if animal.vaccinations %}
+        <div class="an-subhead mt-3">Already given</div>
+        <ul class="list-unstyled small mb-0">
+          {% for v in animal.vaccinations|reverse %}<li><i class="bi bi-shield-check text-success"></i> {{ v.vaccine_name }} &middot; {{ v.vaccination_date|localdate }}</li>{% endfor %}
+        </ul>
+      {% else %}<p class="an-note">No vaccination has been recorded yet.</p>{% endif %}
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var select = document.getElementById('vaccine_name');
+    var box = document.getElementById('custom-vaccine');
+    if (!select || !box) { return; }
+    var sync = function () { box.hidden = select.value !== 'Other'; };
+    select.addEventListener('change', sync);
+    sync();
+  })();
+</script>
+{% endblock %}

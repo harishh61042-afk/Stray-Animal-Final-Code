@@ -1,0 +1,13 @@
+# PawConnect - Python packages (Python 3.10 or newer).
+# Install with:  pip install -r requirements.txt
+Flask>=3.0,<4
+Werkzeug>=3.0,<4
+Flask-SQLAlchemy>=3.1,<4
+SQLAlchemy>=2.0,<3
+Flask-Login>=0.6.3,<0.7
+Flask-WTF>=1.2,<2
+WTForms>=3.1,<4
+# MySQL driver. "cryptography" is needed by MySQL 8's default password method (caching_sha2_password).
+PyMySQL>=1.1,<2
+cryptography>=42
+python-dotenv>=1.0,<2

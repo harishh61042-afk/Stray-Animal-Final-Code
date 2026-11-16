@@ -1,0 +1,270 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'admin/_macros.html' as am %}
+{% set page_title = "Reports & analytics" %}
+{% set page_subtitle = "Real numbers from the PawConnect database" %}
+{% set crumbs = [("Administration", None), ("Reports & analytics", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="#export"><i class="bi bi-download"></i> Download data</a>
+  <a class="btn btn-outline-secondary" href="{{ url_for('admin.audit_log') }}"><i class="bi bi-clock-history"></i> Activity log</a>
+{% endblock %}
+
+{% block content %}
+{% set R = data.rescue %}
+{% set A = data.animals %}
+{% set D = data.adoption %}
+{% set M = data.medical %}
+{% set V = data.volunteers %}
+{% set S = data.shelters %}
+{% set P = data.people %}
+<div class="db-wrap">
+  <form method="get" class="pc-card am-range" role="search" aria-label="Choose the period">
+    <div class="pc-seg" aria-label="Quick periods">
+      {% for p in presets %}
+        <a href="{{ url_for('admin.reports', start=p.start.isoformat(), end=p.end.isoformat()) }}" class="{{ 'active' if p.start == start and p.end == end }}">{{ p.label }}</a>
+      {% endfor %}
+    </div>
+    <div class="am-dates">
+      <div><label for="range-start">From</label><input class="form-control" type="date" id="range-start" name="start" value="{{ start.isoformat() }}" required></div>
+      <div><label for="range-end">To</label><input class="form-control" type="date" id="range-end" name="end" value="{{ end.isoformat() }}" required></div>
+      <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-repeat"></i> Update</button>
+    </div>
+  </form>
+  <p class="am-note">
+    Showing {{ data.label }} ({{ data.days }} day{{ '' if data.days == 1 else 's' }}, grouped by {{ data.mode }}).
+    {% if data.compared %}Percentage changes compare with {{ data.compared }}.{% else %}There is no earlier period of the same length to compare with, so no changes are shown.{% endif %}
+  </p>
+
+  <div class="db-kpis">
+    {% for k in data.headline %}
+      {{ ui.kpi(k.label, k.value, k.icon, k.tone, None, (k.delta if data.compared else None), k.delta_good, k.hint) }}
+    {% endfor %}
+  </div>
+
+  {# ------------------------------------------------------------ rescue #}
+  <section class="am-block" id="rescue">
+    {{ ui.section_title('Rescue', subtitle='Reports received and how quickly they were handled') }}
+    <div class="am-stat-row mb-3">
+      {{ am.stat('Reports received', R.received) }}
+      {{ am.stat('Rescued or closed', R.resolved, R.resolved_percent ~ '% of the reports received') }}
+      {{ am.stat('Open right now', R.open_now, R.critical_now ~ ' marked critical') }}
+      {{ am.stat('Time to assign a rescuer', R.avg_assign, ('average of ' ~ R.avg_assign_count ~ ' report' ~ ('' if R.avg_assign_count == 1 else 's')) if R.avg_assign_count else 'No assignments in this period') }}
+      {{ am.stat('Time to finish a rescue', R.avg_rescue, ('average of ' ~ R.avg_rescue_count ~ ' report' ~ ('' if R.avg_rescue_count == 1 else 's')) if R.avg_rescue_count else 'No finished rescues in this period') }}
+    </div>
+    <div class="db-row db-row-2">
+      {% call ui.card('Reports over time', 'Received and rescued') %}
+        {{ ui.chart('chart-rescue-trend', R.trend_chart, 240) }}
+      {% endcall %}
+      {% call ui.card('Reports by status', 'Reports received in this period') %}
+        {% if R.status_legend %}
+          {{ ui.chart('chart-rescue-status', R.status_chart, 200) }}
+          {{ am.legend(R.status_legend) }}
+        {% else %}
+          {{ ui.empty_state('bi-pie-chart', 'No reports in this period', 'Choose a longer period to see more.') }}
+        {% endif %}
+      {% endcall %}
+    </div>
+    <div class="db-row db-row-3">
+      {% call ui.card('How urgent') %}{{ ui.chart('chart-rescue-emergency', R.emergency_chart, 200) }}{% endcall %}
+      {% call ui.card('Animal types') %}{{ am.bars(R.type_bars, 'green', 'No reports in this period.') }}{% endcall %}
+      {% call ui.card('Reported conditions') %}{{ am.bars(R.condition_bars, 'coral', 'No reports in this period.') }}{% endcall %}
+    </div>
+  </section>
+
+  {# ----------------------------------------------------------- animals #}
+  <section class="am-block" id="animals">
+    {{ ui.section_title('Animals', subtitle='Animals registered, and where they are now') }}
+    <div class="am-stat-row mb-3">
+      {{ am.stat('Registered in this period', A.registered) }}
+      {{ am.stat('In care right now', A.in_care, 'of ' ~ A.total ~ ' animals on record') }}
+      {{ am.stat('Available for adoption now', A.available) }}
+      {{ am.stat('Adopted (all time)', A.adopted) }}
+    </div>
+    <div class="db-row db-row-2">
+      {% call ui.card('Animals registered', 'New animals in this period') %}
+        {{ ui.chart('chart-animals-trend', A.trend_chart, 240) }}
+      {% endcall %}
+      {% call ui.card('Animals by status', 'Every animal on record, today') %}
+        {% if A.status_legend %}
+          {{ ui.chart('chart-animals-status', A.status_chart, 200) }}
+          {{ am.legend(A.status_legend) }}
+        {% else %}
+          {{ ui.empty_state('bi-pie-chart', 'No animals yet', 'The chart appears once animals are registered.') }}
+        {% endif %}
+      {% endcall %}
+    </div>
+    <div class="db-row db-row-2-even">
+      {% call ui.card('Medical status', 'Every animal on record, today') %}{{ ui.chart('chart-animals-medical', A.medical_chart, 200) }}{% endcall %}
+      {% call ui.card('Animal types', 'Registered in this period') %}{{ am.bars(A.type_bars, 'teal', 'No animals were registered in this period.') }}{% endcall %}
+    </div>
+  </section>
+
+  {# ---------------------------------------------------------- adoption #}
+  <section class="am-block" id="adoption">
+    {{ ui.section_title('Adoption', subtitle='Applications and completed adoptions') }}
+    <div class="am-stat-row mb-3">
+      {{ am.stat('Applications received', D.received) }}
+      {{ am.stat('Adoptions completed', D.completed) }}
+      {{ am.stat('Approval rate', (D.approval_percent ~ '%') if D.approval_percent is not none else 'No decisions yet', ('of ' ~ D.decided ~ ' decided') if D.decided else None) }}
+      {{ am.stat('Time to complete', D.avg_days, ('average of ' ~ D.avg_days_count ~ ' adoption' ~ ('' if D.avg_days_count == 1 else 's')) if D.avg_days_count else None) }}
+    </div>
+    <div class="db-row db-row-2">
+      {% call ui.card('Applications over time', 'Received and completed') %}
+        {{ ui.chart('chart-adoption-trend', D.trend_chart, 240) }}
+      {% endcall %}
+      {% call ui.card('Applications by status', 'Received in this period') %}
+        {% if D.status_legend %}
+          {{ ui.chart('chart-adoption-status', D.status_chart, 200) }}
+          {{ am.legend(D.status_legend) }}
+        {% else %}
+          {{ ui.empty_state('bi-pie-chart', 'No applications in this period', 'Choose a longer period to see more.') }}
+        {% endif %}
+      {% endcall %}
+    </div>
+    <div class="db-row">
+      {% call ui.card('Animal types people apply for') %}{{ am.bars(D.type_bars, 'green', 'No applications in this period.') }}{% endcall %}
+    </div>
+  </section>
+
+  {# ----------------------------------------------------------- medical #}
+  <section class="am-block" id="medical">
+    {{ ui.section_title('Medical and vaccination', subtitle='Veterinary work in this period') }}
+    <div class="am-stat-row mb-3">
+      {{ am.stat('Examinations recorded', M.examinations) }}
+      {{ am.stat('Vaccinations given', M.vaccinations) }}
+      {{ am.stat('Vaccinations overdue', M.overdue, 'as of today') }}
+      {{ am.stat('Due in the next 14 days', M.due_soon) }}
+      {{ am.stat('Animals without a vaccination', M.unvaccinated, 'not yet adopted') }}
+    </div>
+    <div class="db-row db-row-2">
+      {% call ui.card('Examinations and vaccinations') %}{{ ui.chart('chart-medical-trend', M.trend_chart, 240) }}{% endcall %}
+      {% call ui.card('Vaccines given', 'Most common in this period') %}{{ am.bars(M.vaccine_bars, 'blue', 'No vaccinations were recorded in this period.') }}{% endcall %}
+    </div>
+  </section>
+
+  {# -------------------------------------------------------- volunteers #}
+  <section class="am-block" id="volunteers">
+    {{ ui.section_title('Volunteers', subtitle='Tasks, hours and applications') }}
+    <div class="am-stat-row mb-3">
+      {{ am.stat('Tasks created', V.created) }}
+      {{ am.stat('Tasks completed', V.completed) }}
+      {{ am.stat('Hours recorded', V.hours, V.active ~ ' volunteer' ~ ('' if V.active == 1 else 's') ~ ' contributed') }}
+      {{ am.stat('Volunteer applications', V.applications) }}
+      {{ am.stat('Approved volunteers now', V.approved_now) }}
+    </div>
+    <div class="db-row db-row-2">
+      {% call ui.card('Tasks over time', 'Created and completed') %}{{ ui.chart('chart-volunteer-trend', V.trend_chart, 240) }}{% endcall %}
+      {% call ui.card('Hours recorded', 'On completed tasks') %}{{ ui.chart('chart-volunteer-hours', V.hours_chart, 240) }}{% endcall %}
+    </div>
+    <div class="db-row db-row-2-even">
+      {% call ui.card('Task types', 'Created in this period') %}{{ am.bars(V.type_bars, 'amber', 'No tasks were created in this period.') }}{% endcall %}
+      {% call ui.card('Most active volunteers', 'By hours in this period') %}
+        {% if V.top %}
+          <ul class="am-rank">
+            {% for v in V.top %}
+              <li>
+                {{ ui.avatar(v.name, 36) }}
+                <div class="am-rank-main"><strong>{{ v.name }}</strong><small>{{ v.tasks }} task{{ '' if v.tasks == 1 else 's' }}</small></div>
+                <span class="am-rank-value">{{ v.hours }} h</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="db-sub mb-0">No completed tasks in this period.</p>
+        {% endif %}
+      {% endcall %}
+    </div>
+  </section>
+
+  {# ---------------------------------------------------------- shelters #}
+  <section class="am-block" id="shelters">
+    {{ ui.section_title('Shelters', subtitle='Capacity and movement of verified shelters') }}
+    <div class="am-stat-row mb-3">
+      {{ am.stat('Total capacity', S.capacity) }}
+      {{ am.stat('Animals housed now', S.housed) }}
+      {{ am.stat('Occupancy', S.occupancy_percent ~ '%') }}
+      {{ am.stat('Admissions in this period', S.admissions) }}
+      {{ am.stat('Capacity overrides', S.overrides, 'admitted above capacity') }}
+    </div>
+    {% call ui.card('Shelter by shelter', flush=True) %}
+      {% if S.rows %}
+        <div class="table-responsive">
+          <table class="table pc-table align-middle mb-0">
+            <thead><tr><th>Shelter</th><th style="min-width: 11rem">Housed now</th><th>Admissions</th><th>Adoptions</th></tr></thead>
+            <tbody>
+              {% for row in S.rows %}
+                <tr>
+                  <td><a class="fw-semibold" href="{{ url_for('shelters.detail', shelter_id=row.shelter.id) }}">{{ row.shelter.shelter_name }}</a></td>
+                  <td>
+                    <div class="small mb-1">{{ row.housed }} of {{ row.shelter.capacity }}</div>
+                    {{ ui.progress(row.percent, 'coral' if row.percent >= 100 else ('amber' if row.percent >= 80 else 'green'), 8) }}
+                  </td>
+                  <td>{{ row.admissions }}</td>
+                  <td>{{ row.adoptions }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        {{ ui.empty_state('bi-house-heart', 'No verified shelters yet', 'Shelters appear here after you verify their registration.', url_for('admin.verifications'), 'Open verifications') }}
+      {% endif %}
+    {% endcall %}
+  </section>
+
+  {# ------------------------------------------------------------ people #}
+  <section class="am-block" id="people">
+    {{ ui.section_title('People', subtitle='Accounts created in this period') }}
+    <div class="am-stat-row mb-3">
+      {{ am.stat('New accounts', P.new) }}
+      {{ am.stat('Accounts in total', P.total) }}
+      {{ am.stat('Waiting for verification', P.pending_verification, 'rescuers, veterinarians and shelters') }}
+    </div>
+    <div class="db-row db-row-2">
+      {% call ui.card('New accounts over time') %}{{ ui.chart('chart-people-trend', P.trend_chart, 220) }}{% endcall %}
+      {% call ui.card('New accounts by type') %}{{ ui.chart('chart-people-roles', P.role_chart, 220) }}{% endcall %}
+    </div>
+    {% call ui.card('Accounts by type', flush=True) %}
+      <div class="table-responsive">
+        <table class="table pc-table align-middle mb-0">
+          <thead><tr><th>Account type</th><th>New in this period</th><th>In total</th></tr></thead>
+          <tbody>
+            {% for row in P.rows %}
+              <tr>
+                <td><span class="am-role"><i class="bi {{ row.icon }}"></i>{{ row.label }}</span></td>
+                <td>{{ row.new }}</td>
+                <td>{{ row.total }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endcall %}
+  </section>
+
+  {# ------------------------------------------------------------ export #}
+  <section class="am-block" id="export">
+    {{ ui.section_title('Download data', subtitle='CSV files you can open in Excel or Google Sheets. Every download is recorded in the activity log.') }}
+    <div class="am-export">
+      {% for d in datasets %}
+        <div class="am-export-item">
+          <h3><i class="bi {{ d.icon }}"></i>{{ d.title }}</h3>
+          <p>{{ d.text }}</p>
+          <small>The period above filters by {{ d.by }}.</small>
+          <div class="am-export-actions">
+            <a class="btn btn-sm btn-primary" href="{{ url_for('admin.export_csv', dataset=d.key, start=start.isoformat(), end=end.isoformat()) }}"><i class="bi bi-download"></i> This period</a>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.export_csv', dataset=d.key) }}">Everything</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}{{ ui.chart_scripts() }}{% endblock %}

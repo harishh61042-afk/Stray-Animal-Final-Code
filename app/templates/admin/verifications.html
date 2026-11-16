@@ -1,0 +1,105 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Verifications" %}
+{% set page_subtitle = "Rescuers, veterinarians and shelters are checked before they get full access" %}
+{% set crumbs = [("Administration", None), ("Users", url_for('admin.users')), ("Verifications", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('admin.users') }}"><i class="bi bi-people"></i> All users</a>
+{% endblock %}
+
+{% block content %}
+{% set pending = counts.get(C.VERIFY_PENDING, 0) %}
+{% set verified = counts.get(C.VERIFY_VERIFIED, 0) %}
+{% set rejected = counts.get(C.VERIFY_REJECTED, 0) %}
+{% set role_options = [] %}
+{% for r in C.VERIFICATION_REQUIRED_ROLES %}{% set _ = role_options.append((r, C.ROLE_LABELS[r])) %}{% endfor %}
+<div class="vstack gap-4">
+  {% call ui.card(flush=True) %}
+    <div class="an-tabs">
+      <div class="pc-seg" aria-label="Verification status">
+        <a href="{{ url_with(status=None, page=None) }}" class="{{ 'active' if status == C.VERIFY_PENDING }}">Pending ({{ pending }})</a>
+        <a href="{{ url_with(status=C.VERIFY_VERIFIED, page=None) }}" class="{{ 'active' if status == C.VERIFY_VERIFIED }}">Verified ({{ verified }})</a>
+        <a href="{{ url_with(status=C.VERIFY_REJECTED, page=None) }}" class="{{ 'active' if status == C.VERIFY_REJECTED }}">Rejected ({{ rejected }})</a>
+        <a href="{{ url_with(status='all', page=None) }}" class="{{ 'active' if status not in [C.VERIFY_PENDING, C.VERIFY_VERIFIED, C.VERIFY_REJECTED] }}">All ({{ pending + verified + rejected }})</a>
+      </div>
+    </div>
+    <form method="get" class="pc-filters" role="search" aria-label="Filter verifications">
+      <input type="hidden" name="status" value="{{ status }}">
+      {{ ui.search_filter('q', q, 'Name or e-mail') }}
+      {{ ui.select_filter('role', 'Account type', role_options, role) }}
+      <div class="pc-filter d-flex gap-2 align-items-center">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+        {% if q or role %}<a class="btn btn-link" href="{{ url_with(q=None, role=None, page=None) }}">Clear</a>{% endif %}
+      </div>
+    </form>
+  {% endcall %}
+
+  {% if cards %}
+    <div class="am-queue">
+      {% for card in cards %}
+        {% set u = card.user %}
+        {% set p = card.profile %}
+        <article class="am-verify" id="user-{{ u.id }}">
+          <div class="am-verify-head">
+            <a class="text-reset text-decoration-none" href="{{ url_for('admin.user_detail', user_id=u.id) }}">{{ ui.person(u.full_name, u.email, 46) }}</a>
+            <div class="am-verify-tags">
+              <span class="am-role"><i class="bi {{ C.ROLE_ICONS.get(u.role, 'bi-person') }}"></i>{{ u.role_label }}</span>
+              {{ ui.status_badge(u.verification_status) }}
+              <small class="text-muted">Registered {{ u.created_at|localdt('%d %b %Y') }}</small>
+            </div>
+          </div>
+
+          <dl class="am-dl">
+            <div><dt>Phone</dt><dd>{{ u.phone or '—' }}</dd></div>
+            {% for row in card.rows %}<div><dt>{{ row.label }}</dt><dd>{{ row.value|nl2br }}</dd></div>{% endfor %}
+          </dl>
+
+          {% if p and p.verification_details %}
+            <div class="am-details"><strong>What they wrote to support the application</strong>{{ p.verification_details|nl2br }}</div>
+          {% endif %}
+          {% if u.verification_note and u.verification_status != C.VERIFY_PENDING %}
+            <div class="am-details"><strong>Note given with the decision</strong>{{ u.verification_note|nl2br }}</div>
+          {% endif %}
+
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            {% if p and p.verification_document %}
+              <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="{{ url_for('files.verification_document', user_id=u.id) }}"><i class="bi bi-file-earmark-text"></i> View uploaded document</a>
+            {% else %}
+              <span class="text-muted small"><i class="bi bi-file-earmark-x"></i> No document uploaded</span>
+            {% endif %}
+            <a class="btn btn-sm btn-link" href="{{ url_for('admin.user_detail', user_id=u.id) }}">Open account</a>
+          </div>
+
+          <form method="post" action="{{ url_for('admin.verify', user_id=u.id) }}" class="am-decision">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ url_with() }}">
+            <label class="form-label mb-0" for="note-{{ u.id }}">Note to the person <span class="text-muted fw-normal">(required when rejecting)</span></label>
+            <textarea class="form-control" id="note-{{ u.id }}" name="note" rows="2" maxlength="1000" placeholder="For example: documents checked, or what is missing"></textarea>
+            <div class="am-decision-actions">
+              {% if u.verification_status != C.VERIFY_VERIFIED %}
+                <button type="submit" name="decision" value="approve" class="btn btn-primary" data-loading><i class="bi bi-patch-check"></i> Verify account</button>
+              {% endif %}
+              {% if u.verification_status != C.VERIFY_REJECTED %}
+                <button type="submit" name="decision" value="reject" class="btn btn-outline-danger" data-loading
+                        data-confirm="{{ 'Withdraw the verification of ' if u.verification_status == C.VERIFY_VERIFIED else 'Reject the verification of ' }}{{ u.full_name }}? They are told the reason you wrote."
+                        data-confirm-ok="Yes, reject"><i class="bi bi-x-circle"></i> {{ 'Withdraw verification' if u.verification_status == C.VERIFY_VERIFIED else 'Reject' }}</button>
+              {% endif %}
+            </div>
+          </form>
+        </article>
+      {% endfor %}
+    </div>
+    {{ ui.pagination(pagination) }}
+  {% elif q or role %}
+    {% call ui.card() %}{{ ui.empty_state('bi-funnel', 'No account matches', 'Try other filters or clear the search.', url_with(q=None, role=None, page=None), 'Clear filters') }}{% endcall %}
+  {% elif status == C.VERIFY_PENDING %}
+    {% call ui.card() %}{{ ui.empty_state('bi-patch-check', 'Nobody is waiting', 'New rescuer, veterinarian and shelter registrations appear here for your decision.') }}{% endcall %}
+  {% else %}
+    {% call ui.card() %}{{ ui.empty_state('bi-patch-check', 'Nothing to show', 'No account has this verification status yet.', url_with(status=None, page=None), 'Show pending') }}{% endcall %}
+  {% endif %}
+</div>
+{% endblock %}

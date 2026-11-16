@@ -1,0 +1,79 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set rejected = current_user.verification_status == C.VERIFY_REJECTED %}
+{% set page_title = "Verification status" %}
+{% set page_subtitle = "Rescuers, veterinarians and shelters are checked by an administrator before they get full access." %}
+{% block content %}
+{% set has_details = role_profile is not none and (role_profile.verification_details or role_profile.verification_document) %}
+<div class="row g-4">
+  <div class="col-lg-7">
+    {% call ui.card() %}
+      <div class="d-flex align-items-start gap-3">
+        <span class="pc-icon-circle"><i class="bi {{ 'bi-x-circle' if rejected else 'bi-hourglass-split' }}"></i></span>
+        <div>
+          {% if rejected %}
+            <h2 class="h4 mb-1">Your verification was not approved</h2>
+            <p class="text-secondary mb-3">An administrator reviewed your details but could not verify your {{ current_user.role_label|lower }} account yet.</p>
+            {% if current_user.verification_note %}
+              <div class="alert alert-warning pc-alert" role="note"><i class="bi bi-chat-left-text"></i>
+                <div class="pc-alert-text"><strong>Administrator's note</strong><div class="pc-pre">{{ current_user.verification_note }}</div></div></div>
+            {% endif %}
+            <p class="mb-0">If you think this is a mistake, or you can provide more proof, please <a href="{{ url_for('public.contact') }}" class="fw-semibold">contact the administrators</a> and mention the e-mail address you registered with.</p>
+          {% else %}
+            <h2 class="h4 mb-1">Your account is waiting for verification</h2>
+            <p class="text-secondary mb-3">Thank you for registering as a {{ current_user.role_label|lower }}. An administrator will check the details you submitted.</p>
+            <p class="mb-0">You will get a notification here as soon as the review is finished. Until then you can update your profile and change your password, but the {{ current_user.role_label|lower }} tools stay locked.</p>
+          {% endif %}
+        </div>
+      </div>
+    {% endcall %}
+
+    {% call ui.card('What happens next') %}
+      {{ ui.timeline([
+        {'title': 'Account created', 'text': 'Registered as ' ~ current_user.role_label ~ ' (' ~ current_user.email ~ ')', 'time': current_user.created_at|localdt, 'icon': 'bi-check-lg', 'tone': 'green'},
+        {'title': 'Verification details received' if has_details else 'No verification details were provided',
+         'text': ('Your details are waiting in the administrators\' queue.' if has_details else 'You can add information by contacting an administrator.'),
+         'icon': 'bi-file-earmark-check' if has_details else 'bi-exclamation-circle', 'tone': 'green' if has_details else 'amber'},
+        {'title': 'Administrator review', 'text': ('Not approved - see the note above.' if rejected else 'In progress. This usually needs a person to look at your details, so it can take a little while.'),
+         'icon': 'bi-x-lg' if rejected else 'bi-hourglass-split', 'tone': 'coral' if rejected else 'amber'},
+        {'title': 'Full access', 'text': 'Your dashboard and tools unlock as soon as you are verified.', 'icon': 'bi-unlock', 'tone': 'gray'}
+      ]) }}
+    {% endcall %}
+  </div>
+
+  <div class="col-lg-5">
+    {% call ui.card('What you submitted') %}
+      {{ ui.kv('Name', current_user.full_name, 'bi-person') }}
+      {{ ui.kv('Phone', current_user.phone, 'bi-telephone') }}
+      {% if role_profile %}
+        {% if current_user.role == C.ROLE_RESCUER %}
+          {{ ui.kv('Organisation', role_profile.organization, 'bi-building') }}
+          {{ ui.kv('Service area', role_profile.service_area, 'bi-geo-alt') }}
+          {{ ui.kv('Experience', (role_profile.experience_years ~ ' years') if role_profile.experience_years is not none else none, 'bi-award') }}
+        {% elif current_user.role == C.ROLE_VETERINARIAN %}
+          {{ ui.kv('Clinic', role_profile.clinic_name, 'bi-hospital') }}
+          {{ ui.kv('Licence number', role_profile.license_number, 'bi-card-text') }}
+          {{ ui.kv('Qualification', role_profile.qualification, 'bi-mortarboard') }}
+        {% elif current_user.role == C.ROLE_SHELTER %}
+          {{ ui.kv('Shelter', role_profile.shelter_name, 'bi-house-heart') }}
+          {{ ui.kv('City', role_profile.city, 'bi-geo-alt') }}
+          {{ ui.kv('Capacity', role_profile.capacity ~ ' animals', 'bi-grid') }}
+        {% endif %}
+        {% if role_profile.verification_details %}
+          <hr class="pc-divider">
+          <div class="small text-secondary mb-1">Verification details</div>
+          <div class="pc-pre small">{{ role_profile.verification_details }}</div>
+        {% endif %}
+        {% if role_profile.verification_document %}
+          <a class="btn btn-outline-primary btn-sm mt-3" target="_blank" rel="noopener" href="{{ url_for('files.verification_document', user_id=current_user.id) }}"><i class="bi bi-file-earmark-text"></i> View uploaded document</a>
+        {% endif %}
+      {% endif %}
+      <hr class="pc-divider">
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary btn-sm" href="{{ url_for('account.profile') }}"><i class="bi bi-person-gear"></i> Edit my profile</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('public.contact') }}"><i class="bi bi-envelope"></i> Contact us</a>
+      </div>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

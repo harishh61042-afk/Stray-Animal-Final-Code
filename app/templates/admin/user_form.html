@@ -1,0 +1,90 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Add a user" %}
+{% set page_subtitle = "Create an account for a team member, partner or volunteer" %}
+{% set crumbs = [("Administration", None), ("Users", url_for('admin.users')), ("Add user", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('admin.users') }}"><i class="bi bi-arrow-left"></i> Back to users</a>
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div class="an-main">
+    {% call ui.card('Account details') %}
+      <form method="post" novalidate class="vstack gap-4">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+        <div class="row g-3">
+          {{ f.field(form.role, col='col-md-6') }}
+          {{ f.field(form.full_name, col='col-md-6', autofocus=True) }}
+          {{ f.field(form.email, col='col-md-6', prefix_icon='bi-envelope') }}
+          {{ f.field(form.phone, col='col-md-6', prefix_icon='bi-telephone') }}
+          {{ f.field(form.password, col='col-md-6', help='Leave it empty to generate a temporary password. It is shown once, after you save.') }}
+          <div class="col-md-6 d-flex align-items-center">{{ f.field(form.must_change_password) }}</div>
+        </div>
+
+        <div class="am-fieldset" data-visible-when-field="role" data-visible-when-value="volunteer">
+          <h3 class="am-section">Volunteer details</h3>
+          <div class="row g-3">
+            {{ f.field(form.skills, col='col-12', rows=3, help='For example: dog handling, first aid, transport.') }}
+            {{ f.field(form.availability, col='col-12', placeholder='e.g. Weekends and evenings') }}
+          </div>
+        </div>
+
+        <div class="am-fieldset" data-visible-when-field="role" data-visible-when-value="rescuer">
+          <h3 class="am-section">Rescuer details</h3>
+          <div class="row g-3">
+            {{ f.field(form.service_area, col='col-md-6', placeholder='e.g. North Hyderabad') }}
+            {{ f.field(form.organization, col='col-md-6') }}
+            <div class="col-12">{{ f.field(form.has_vehicle) }}</div>
+          </div>
+        </div>
+
+        <div class="am-fieldset" data-visible-when-field="role" data-visible-when-value="veterinarian">
+          <h3 class="am-section">Veterinarian details</h3>
+          <div class="row g-3">
+            {{ f.field(form.license_number, col='col-md-6') }}
+            {{ f.field(form.qualification, col='col-md-6') }}
+            {{ f.field(form.clinic_name, col='col-12') }}
+          </div>
+        </div>
+
+        <div class="am-fieldset" data-visible-when-field="role" data-visible-when-value="shelter">
+          <h3 class="am-section">Shelter details</h3>
+          <div class="row g-3">
+            {{ f.field(form.shelter_name, col='col-md-8') }}
+            {{ f.field(form.capacity, col='col-md-4') }}
+            {{ f.field(form.address, col='col-12', rows=2) }}
+            {{ f.field(form.city, col='col-md-5') }}
+            {{ f.field(form.state, col='col-md-4') }}
+            {{ f.field(form.pincode, col='col-md-3') }}
+            {{ f.field(form.registration_number, col='col-md-6') }}
+          </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+          {{ f.submit('Create account', 'bi-person-plus', loading='Creating...') }}
+          <a class="btn btn-outline-secondary" href="{{ url_for('admin.users') }}">Cancel</a>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="About creating accounts">
+    {% call ui.card('Good to know') %}
+      <ul class="am-tips">
+        <li>Rescuer, veterinarian and shelter accounts created here are <strong>verified straight away</strong>, because you vouch for them.</li>
+        <li>Volunteers created here are <strong>approved</strong> and can accept tasks at once.</li>
+        <li>Nothing is e-mailed. Give the person their e-mail address and password yourself.</li>
+        <li>Administrator accounts can only be created on this page, never through public registration.</li>
+        <li>The creation is recorded in the activity log.</li>
+      </ul>
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}

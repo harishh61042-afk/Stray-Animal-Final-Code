@@ -1,0 +1,169 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Rescue overview" %}
+{% set page_subtitle = "Live numbers from the PawConnect database" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">{% endblock %}
+{% block page_actions %}
+  <span class="db-period"><i class="bi bi-calendar3"></i> {{ d.period }}</span>
+  <a class="btn btn-primary" href="{{ url_for('admin.reports') }}"><i class="bi bi-bar-chart-line"></i> Reports &amp; analytics</a>
+{% endblock %}
+
+{% block content %}
+{% set hour = utcnow()|localdt('%H')|int %}
+{% set greeting = 'Good morning' if hour < 12 else ('Good afternoon' if hour < 17 else 'Good evening') %}
+{% set hero_text = (d.critical ~ ' of them ' ~ ('is' if d.critical == 1 else 'are') ~ ' marked critical. Open the list to assign a rescuer.') if d.critical else 'Nothing is marked critical right now. Open the list to review and assign reports.' %}
+<div class="db-wrap">
+  <div class="db-kpis">
+    {% for k in d.kpis %}
+      {{ ui.kpi(k.label, k.value, k.icon, k.tone, k.series, k.get('delta'), 'up', k.hint, url_for(k.href)) }}
+    {% endfor %}
+  </div>
+
+  <div class="db-row db-row-hero">
+    {% call ui.hero(greeting ~ ', ' ~ current_user.full_name.split(' ')[0], d.open_reports ~ ' open rescue report' ~ ('' if d.open_reports == 1 else 's'), hero_text, 'bi-life-preserver') %}
+      <a class="btn btn-light" href="{{ url_for('rescue.manage') }}">Review reports <i class="bi bi-arrow-up-right"></i></a>
+      <a class="btn btn-glass" href="{{ url_for('admin.verifications') }}">Verifications</a>
+    {% endcall %}
+
+    {% call ui.card('Rescue activity', 'Reports received and animals registered, last 12 months') %}
+      <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+        <div class="db-bignum">{{ d.report_total_12m }} <small>reports</small></div>
+        <div class="db-legend-inline">
+          <span><i style="--c:#1f9d63"></i>Reports received</span>
+          <span><i style="--c:#3b82f6"></i>Animals registered</span>
+        </div>
+      </div>
+      {{ ui.chart('chart-activity', d.activity_chart, 230) }}
+    {% endcall %}
+  </div>
+
+  <div class="db-row db-row-3">
+    {% call ui.card('Adoptions', 'Completed adoptions per month') %}
+      <div class="d-flex flex-wrap align-items-baseline gap-2">
+        <div class="db-bignum">{{ d.adopted_total }}</div>
+        {% set dl = d.adoption_delta %}
+        {% if dl is not none %}
+          <span class="pc-delta {{ 'pc-delta-good' if dl > 0 else ('pc-delta-bad' if dl < 0 else 'pc-delta-flat') }}"><i class="bi {{ 'bi-arrow-up-right' if dl > 0 else ('bi-arrow-down-right' if dl < 0 else 'bi-dash') }}"></i>{{ dl|abs }}%</span>
+          <span class="db-sub">vs last month</span>
+        {% endif %}
+      </div>
+      <div class="db-sub mb-2">{{ d.adoptions_this_month }} this month</div>
+      {{ ui.chart('chart-adoptions', d.adoption_chart, 180) }}
+    {% endcall %}
+
+    {% call ui.card('Reports by status', 'Every report received so far') %}
+      {% if d.report_total %}
+        {{ ui.chart('chart-status', d.status_chart, 190) }}
+        <ul class="db-legend">
+          {% for item in d.status_legend %}<li style="--c:{{ item.color }}">{{ item.label }}<strong>{{ item.value }}</strong></li>{% endfor %}
+        </ul>
+      {% else %}
+        {{ ui.empty_state('bi-pie-chart', 'No reports yet', 'The chart appears as soon as the first report arrives.') }}
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card('Care progress', 'How far animals have come') %}
+      {% if d.total_animals %}
+        <div class="db-bignum">{{ d.care_score }} <small>/ 100</small></div>
+        <div class="db-sub mb-3">Share of animals that are available for adoption or already adopted</div>
+        {{ ui.dot_matrix(d.care_dots, 40) }}
+      {% else %}
+        {{ ui.empty_state('bi-heart', 'No animals yet', 'Animals appear here after they are registered.') }}
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <div class="db-row db-row-2">
+    {% call ui.card('Animals by type', 'All animals in PawConnect') %}
+      {% if d.type_bars %}
+        <ul class="db-hbars">
+          {% for b in d.type_bars %}
+            <li>
+              <div class="db-hbar-top"><span>{{ b.label }}</span><strong>{{ b.value }}</strong></div>
+              {{ ui.progress(b.pct, ['green', 'teal', 'blue', 'amber', 'coral', 'green'][loop.index0], 10) }}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        {{ ui.empty_state('bi-bar-chart', 'No animals yet', 'Once animals are registered, they are counted by type here.') }}
+      {% endif %}
+    {% endcall %}
+
+    {% set feed_filters %}
+      {% if d.feed_kinds %}
+      <div class="pc-seg" data-feed-filter="#db-feed" role="group" aria-label="Filter activity">
+        <button type="button" class="active" data-kind="">All</button>
+        {% for kind in d.feed_kinds %}<button type="button" data-kind="{{ kind }}">{{ kind }}</button>{% endfor %}
+      </div>
+      {% endif %}
+    {% endset %}
+    {% call ui.card('Recent activity', 'Latest actions on the platform', actions=feed_filters, flush=True) %}
+      {% if d.feed %}
+        <div class="table-responsive">
+          <table class="table pc-table align-middle" id="db-feed">
+            <thead><tr><th>User</th><th>Action</th><th>Type</th><th class="text-end">When</th></tr></thead>
+            <tbody>
+              {% for item in d.feed %}
+                <tr data-kind="{{ item.kind }}">
+                  <td>{{ ui.person(item.who, size=30) }}</td>
+                  <td><div class="fw-semibold">{{ item.title }}</div>{% if item.detail %}<small class="text-secondary db-clamp">{{ item.detail }}</small>{% endif %}</td>
+                  <td>{{ ui.status_badge(item.kind, item.tone) }}</td>
+                  <td class="text-end text-nowrap small text-secondary" title="{{ item.when|localdt }}">{{ item.when|timeago }}</td>
+                </tr>
+              {% endfor %}
+              <tr class="db-feed-empty" hidden><td colspan="4">Nothing of this type yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="px-4 py-3 border-top"><a class="pc-link-arrow" href="{{ url_for('admin.audit_log') }}">Open the full activity log <i class="bi bi-arrow-right"></i></a></div>
+      {% else %}
+        {{ ui.empty_state('bi-activity', 'No activity yet', 'Actions taken on the platform are listed here.') }}
+      {% endif %}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block right_rail %}
+  {% include 'dashboard/_notes.html' %}
+
+  {% call ui.card('Quick actions') %}
+    <div class="db-quick">
+      <a href="{{ url_for('rescue.manage') }}"><i class="bi bi-inbox"></i> Review reports</a>
+      <a href="{{ url_for('admin.verifications') }}"><i class="bi bi-patch-check"></i> Verify accounts</a>
+      <a href="{{ url_for('admin.user_create') }}"><i class="bi bi-person-plus"></i> Add a user</a>
+      <a href="{{ url_for('tasks.new') }}"><i class="bi bi-list-check"></i> New volunteer task</a>
+      <a href="{{ url_for('admin.send_notification') }}"><i class="bi bi-megaphone"></i> Send a notice</a>
+      <a href="{{ url_for('admin.export_csv', dataset='reports') }}"><i class="bi bi-download"></i> Export reports</a>
+    </div>
+  {% endcall %}
+
+  <section class="db-insight">
+    <h3><i class="bi bi-flag"></i> Needs attention</h3>
+    <p>{{ 'Everything is up to date.' if not d.attention_total else (d.attention_total ~ ' item' ~ ('' if d.attention_total == 1 else 's') ~ ' waiting for you.') }}</p>
+    <ul class="db-attn">
+      {% for item in d.attention %}
+        <li class="{{ 'zero' if not item.count }}"><a href="{{ url_for(item.endpoint, **item.args) }}"><i class="bi {{ item.icon }}"></i>{{ item.label }}<span class="db-count">{{ item.count }}</span></a></li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  {% call ui.card('Busiest shelters', 'By how full they are') %}
+    {% if d.top_shelters %}
+      {% for row in d.top_shelters %}
+        <div class="db-row-item">
+          <div class="db-row-main">
+            <a class="strong" href="{{ url_for('shelters.detail', shelter_id=row.shelter.id) }}">{{ row.shelter.shelter_name }}</a>
+            <small>{{ row.count }} of {{ row.shelter.capacity }} places used</small>
+            {{ ui.progress(row.percent, 'coral' if row.percent >= 90 else ('amber' if row.percent >= 70 else 'green'), 6) }}
+          </div>
+          <div class="db-row-side"><strong>{{ row.percent }}%</strong></div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="db-note-empty"><i class="bi bi-house"></i> No verified shelters yet.</p>
+    {% endif %}
+  {% endcall %}
+{% endblock %}
+
+{% block scripts %}{{ ui.chart_scripts() }}<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>{% endblock %}

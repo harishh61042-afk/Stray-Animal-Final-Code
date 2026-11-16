@@ -1,0 +1,57 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Notifications" %}
+{% set page_subtitle = "Updates about your reports, animals, tasks and applications." %}
+{% block page_actions %}
+  {% if unread %}
+    <form method="post" action="{{ url_for('notifications.mark_all_read') }}" class="d-inline">
+      {{ ui.csrf() }}
+      <button type="submit" class="btn btn-outline-primary" data-loading><i class="bi bi-check2-all"></i> Mark all {{ unread }} as read</button>
+    </form>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<form method="get" class="pc-filters mb-3">
+  <div class="pc-seg" role="group" aria-label="Show">
+    <a href="{{ url_with(filter=None, page=None) }}" class="{{ 'active' if show != 'unread' }}">All</a>
+    <a href="{{ url_with(filter='unread', page=None) }}" class="{{ 'active' if show == 'unread' }}">Unread{% if unread %} ({{ unread }}){% endif %}</a>
+  </div>
+  <input type="hidden" name="filter" value="{{ show if show == 'unread' else '' }}">
+  {% set category_options = [] %}
+  {% for c in C.NOTIFICATION_CATEGORIES %}{% set _ = category_options.append((c, c|title)) %}{% endfor %}
+  {{ ui.select_filter('category', 'Type', category_options, category) }}
+</form>
+
+{% call ui.card(flush=True) %}
+  {% if pagination.items %}
+    <ul class="list-unstyled mb-0">
+      {% for n in pagination.items %}
+        <li class="pc-notif-item {{ 'unread' if not n.is_read }}" style="align-items:center">
+          <span class="pc-notif-icon"><i class="bi {{ n.icon }}"></i></span>
+          <div class="pc-notif-text flex-grow-1">
+            <strong>{{ n.title }}</strong>
+            <span style="-webkit-line-clamp:4">{{ n.message }}</span>
+            <small>{{ n.created_at|timeago }} &middot; {{ n.created_at|localdt }}</small>
+          </div>
+          <div class="d-flex flex-column flex-sm-row gap-2 flex-none">
+            {% if n.link_url and n.link_url.startswith('/') %}
+              {% if n.is_read %}
+                <a class="btn btn-sm btn-outline-primary" href="{{ n.link_url }}">Open</a>
+              {% else %}
+                {{ ui.post_button(url_for('notifications.mark_read', notification_id=n.id), 'Open', 'btn btn-sm btn-primary', 'bi-box-arrow-up-right') }}
+              {% endif %}
+            {% endif %}
+            {% if not n.is_read and not n.link_url %}
+              {{ ui.post_button(url_for('notifications.mark_read', notification_id=n.id), 'Mark as read', 'btn btn-sm btn-outline-secondary', 'bi-check2') }}
+            {% endif %}
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    {{ ui.empty_state('bi-bell-slash', 'You are all caught up' if show == 'unread' else 'No notifications yet',
+                      'New notifications appear here when something changes in your reports, tasks or applications.') }}
+  {% endif %}
+{% endcall %}
+<div class="mt-3">{{ ui.pagination(pagination) }}</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{# Top bar of the signed-in shell: breadcrumb + page title on the left, tools on the right. #}
+<header class="pc-topbar">
+  <button type="button" class="pc-icon-btn d-lg-none" id="pcSidebarOpen" aria-label="Open menu"><i class="bi bi-list"></i></button>
+
+  <div class="pc-topbar-title">
+    <nav class="pc-crumbs" aria-label="Breadcrumb">
+      <a href="{{ url_for('dashboard.index') }}">Home</a>
+      {% if crumbs is defined and crumbs %}
+        {% for label, href in crumbs %}
+          <i class="bi bi-chevron-right"></i>
+          {% if href %}<a href="{{ href }}">{{ label }}</a>{% else %}<span>{{ label }}</span>{% endif %}
+        {% endfor %}
+      {% elif page_title is defined and page_title %}
+        <i class="bi bi-chevron-right"></i><span>{{ page_title }}</span>
+      {% endif %}
+    </nav>
+    <h1 class="pc-page-title">{{ page_title if page_title is defined and page_title else 'PawConnect' }}</h1>
+    {% if page_subtitle is defined and page_subtitle %}<p class="pc-page-subtitle">{{ page_subtitle }}</p>{% endif %}
+  </div>
+
+  <div class="pc-topbar-tools">
+    <form class="pc-search d-none d-md-flex" action="{{ url_for(search_endpoint) }}" method="get" role="search">
+      <i class="bi bi-search"></i>
+      <input type="search" name="q" value="{{ request.args.get('q', '') if request.endpoint == search_endpoint else '' }}"
+             placeholder="{{ search_placeholder }}" aria-label="Search">
+    </form>
+    <button type="button" class="pc-icon-btn" data-theme-toggle aria-label="Toggle dark mode"><i class="bi bi-moon-stars"></i></button>
+    {% include 'partials/_notif_bell.html' %}
+    <div class="dropdown">
+      <button class="pc-user-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+        <span class="pc-avatar" style="--size:34px;--bg:{{ current_user.full_name|avatar_color }}">{{ current_user.full_name|initials }}</span>
+        <span class="d-none d-md-inline pc-user-name">{{ current_user.full_name }}</span>
+        <i class="bi bi-chevron-down d-none d-md-inline small"></i>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end pc-menu">
+        <li class="pc-menu-head"><strong>{{ current_user.full_name }}</strong><small>{{ current_user.role_label }}</small></li>
+        <li><a class="dropdown-item" href="{{ url_for('account.profile') }}"><i class="bi bi-person-circle"></i> My profile</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('account.change_password') }}"><i class="bi bi-key"></i> Change password</a></li>
+        <li><a class="dropdown-item" href="{{ url_for('public.home') }}"><i class="bi bi-house"></i> Public website</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <form method="post" action="{{ url_for('auth.logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="dropdown-item" type="submit"><i class="bi bi-box-arrow-right"></i> Sign out</button>
+          </form>
+        </li>
+      </ul>
+    </div>
+  </div>
+</header>

@@ -1,0 +1,62 @@
+/* Administrator pages.  Prefix: am-
+   Re-uses the colour tokens of app.css and the an- / db- helpers of animals.css and dashboard.css. */
+
+.am-role { display: inline-flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 600; color: var(--pc-text); white-space: nowrap; }
+.am-role i { color: var(--pc-primary); }
+.am-section { font-size: .74rem; text-transform: uppercase; letter-spacing: .08em; color: var(--pc-muted); font-weight: 700; margin: 0 0 .85rem; }
+.am-fieldset { border-top: 1px solid var(--pc-border); padding-top: 1.25rem; }
+.am-tips { margin: 0; padding-left: 1.1rem; display: grid; gap: .55rem; color: var(--pc-muted); font-size: .86rem; }
+.am-detail-text { max-width: 420px; overflow-wrap: anywhere; color: var(--pc-muted); font-size: .84rem; }
+
+/* ---------- label / value grid ---------- */
+.am-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .9rem 1.5rem; margin: 0; }
+.am-dl > div { min-width: 0; }
+.am-dl dt { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--pc-muted); font-weight: 600; }
+.am-dl dd { margin: .1rem 0 0; font-size: .9rem; overflow-wrap: anywhere; }
+
+/* ---------- verification queue ---------- */
+.am-queue { display: grid; gap: 18px; }
+.am-verify { background: var(--pc-surface); border: 1px solid var(--pc-border); border-radius: var(--pc-radius); box-shadow: var(--pc-shadow); padding: 20px 22px; display: grid; gap: 16px; }
+.am-verify-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
+.am-verify-tags { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.am-details { background: var(--pc-surface-2); border: 1px solid var(--pc-border); border-radius: var(--pc-radius-sm); padding: .85rem 1rem; font-size: .88rem; overflow-wrap: anywhere; }
+.am-details strong { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--pc-muted); margin-bottom: .25rem; }
+.am-decision { display: grid; gap: .6rem; border-top: 1px dashed var(--pc-border); padding-top: 14px; }
+.am-decision-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* ---------- contact inbox ---------- */
+.am-inbox { display: grid; gap: 16px; }
+.am-msg { background: var(--pc-surface); border: 1px solid var(--pc-border); border-radius: var(--pc-radius); box-shadow: var(--pc-shadow); padding: 18px 22px; }
+.am-msg.is-new { border-left: 4px solid var(--pc-amber); }
+.am-msg-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: .5rem 1rem; }
+.am-msg h3 { font-size: 1.02rem; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.am-msg-meta { color: var(--pc-muted); font-size: .8rem; overflow-wrap: anywhere; }
+.am-msg-body { overflow-wrap: anywhere; font-size: .92rem; margin: .8rem 0 1rem; }
+.am-msg-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* ---------- analytics ---------- */
+.am-range { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 24px; padding: 16px 22px; margin-bottom: 20px; }
+.am-dates { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.am-dates label { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--pc-muted); margin-bottom: .25rem; font-weight: 600; }
+.am-dates input[type="date"] { min-width: 150px; }
+.am-note { color: var(--pc-muted); font-size: .8rem; margin: -4px 0 22px; }
+.am-block { margin-top: 30px; }
+.am-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
+.am-stat { background: var(--pc-surface-2); border: 1px solid var(--pc-border); border-radius: var(--pc-radius-sm); padding: .85rem 1rem; min-width: 0; }
+.am-stat small { display: block; color: var(--pc-muted); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.am-stat strong { display: block; font-size: 1.4rem; letter-spacing: -.02em; line-height: 1.3; overflow-wrap: anywhere; }
+.am-stat span { display: block; color: var(--pc-faint); font-size: .76rem; }
+.am-rank { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.am-rank li { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.am-rank-main { flex: 1; min-width: 0; }
+.am-rank-main strong { display: block; font-weight: 600; font-size: .9rem; overflow-wrap: anywhere; }
+.am-rank-main small { color: var(--pc-muted); font-size: .78rem; }
+.am-rank-value { font-weight: 700; white-space: nowrap; }
+
+.am-export { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.am-export-item { border: 1px solid var(--pc-border); border-radius: var(--pc-radius-md); padding: 16px; display: flex; flex-direction: column; gap: .55rem; background: var(--pc-surface); }
+.am-export-item h3 { font-size: .98rem; font-weight: 700; margin: 0; display: flex; align-items: center; gap: .5rem; }
+.am-export-item h3 i { color: var(--pc-primary); }
+.am-export-item p { color: var(--pc-muted); font-size: .82rem; margin: 0; flex: 1; }
+.am-export-item small { color: var(--pc-faint); font-size: .72rem; }
+.am-export-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }

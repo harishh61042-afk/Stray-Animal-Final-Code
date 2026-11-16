@@ -1,0 +1,13 @@
+{# Shelter helpers.   {% import 'shelters/_macros.html' as sm %} #}
+
+{# Capacity bar: "12 of 20 places used - 8 free". `used` is the number of animals housed now. #}
+{% macro occupancy(shelter, used) %}
+  {% set pct = ((used * 100 / shelter.capacity)|round|int) if shelter.capacity else 0 %}
+  {% set shown = [pct, 100]|min %}
+  {% set free = [shelter.capacity - used, 0]|max %}
+  <div class="an-occupancy">
+    <div class="top"><span>{{ used }} of {{ shelter.capacity }} places used</span><strong>{{ free }} free</strong></div>
+    <div class="an-bar{{ ' is-full' if pct >= 100 else (' is-high' if pct >= 80) }}" role="progressbar" aria-label="Shelter occupancy"
+         aria-valuenow="{{ shown }}" aria-valuemin="0" aria-valuemax="100"><i style="width: {{ shown }}%"></i></div>
+  </div>
+{% endmacro %}

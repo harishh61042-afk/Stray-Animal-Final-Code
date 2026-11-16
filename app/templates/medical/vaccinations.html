@@ -1,0 +1,89 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Vaccinations" %}
+{% set page_subtitle = "Doses that are due soon, and what was given recently" %}
+{% set crumbs = [("Medical records", url_for('medical.index')), ("Vaccinations", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}<a class="btn btn-outline-primary" href="{{ url_for('medical.index') }}"><i class="bi bi-clipboard2-pulse"></i> Medical records</a>{% endblock %}
+
+{% block content %}
+{% call ui.card(flush=True) %}
+  <div class="an-tabs">
+    <div class="pc-seg" aria-label="View">
+      <a href="{{ url_with(view=None, page=None) }}" class="{{ 'active' if view == 'due' }}">Due or overdue</a>
+      <a href="{{ url_with(view='recent', page=None) }}" class="{{ 'active' if view == 'recent' }}">Recently given</a>
+    </div>
+    {% if current_user.role == C.ROLE_VETERINARIAN %}
+      <div class="pc-seg" aria-label="Which animals">
+        <a href="{{ url_with(scope=None, page=None) }}" class="{{ 'active' if scope != 'all' }}">My cases</a>
+        <a href="{{ url_with(scope='all', page=None) }}" class="{{ 'active' if scope == 'all' }}">All animals</a>
+      </div>
+    {% endif %}
+  </div>
+  {% if view == 'due' %}
+    <form method="get" class="pc-filters" aria-label="Time window">
+      {% if scope == 'all' %}<input type="hidden" name="scope" value="all">{% endif %}
+      <div class="pc-filter">
+        <label class="form-label" for="f-days">Due within</label>
+        <select class="form-select" id="f-days" name="days" data-auto-submit>
+          {% for d in windows %}<option value="{{ d }}"{{ ' selected' if d == days }}>{{ d }} days</option>{% endfor %}
+        </select>
+      </div>
+      <div class="pc-filter align-self-end text-secondary small">
+        {{ items|length }} dose{{ '' if items|length == 1 else 's' }}{% if overdue %}, <span class="an-overdue">{{ overdue }} overdue</span>{% endif %}
+      </div>
+    </form>
+  {% endif %}
+
+  {% if items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead>
+          <tr>
+            <th>Animal</th><th>Vaccine</th><th>Given</th>
+            {% if view == 'due' %}<th>Next dose</th>{% else %}<th>Next dose due</th>{% endif %}
+            <th>Veterinarian</th><th class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in items %}
+            {% set a = v.animal %}
+            <tr>
+              <td>
+                <a class="an-animal-cell" href="{{ url_for('medical.animal_profile', animal_id=a.id) }}">
+                  {{ ui.img(animal_image_url(a), a.display_name ~ ', ' ~ a.animal_type|lower, class_='an-avatar', fallback=placeholder_url(a.animal_type)) }}
+                  <span><strong>{{ a.display_name }}</strong><small>{{ a.animal_code }} &middot; {{ a.animal_type }}</small></span>
+                </a>
+              </td>
+              <td><strong>{{ v.vaccine_name }}</strong>{% if v.batch_number %}<span class="an-mini">Batch {{ v.batch_number }}</span>{% endif %}</td>
+              <td>{{ v.vaccination_date|localdate }}</td>
+              <td>
+                {% if v.next_due_date %}
+                  {% set left = (v.next_due_date - today).days %}
+                  {{ v.next_due_date|localdate }}
+                  <span class="an-mini {{ 'an-overdue' if left < 0 else ('an-due' if left <= 7) }}">{% if left < 0 %}Overdue by {{ -left }} day{{ '' if left == -1 else 's' }}{% elif left == 0 %}Due today{% else %}In {{ left }} day{{ '' if left == 1 else 's' }}{% endif %}</span>
+                {% else %}<span class="text-body-tertiary">No next dose</span>{% endif %}
+              </td>
+              <td>{{ a.veterinarian.full_name if a.veterinarian else 'Not assigned' }}</td>
+              <td class="text-end">
+                {% if v.id in writable and v.next_due_date %}
+                  <a class="btn btn-sm btn-primary" href="{{ url_for('medical.add_vaccination', animal_id=a.id, vaccine=v.vaccine_name) }}"><i class="bi bi-shield-plus"></i> Record dose</a>
+                {% else %}
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('medical.animal_profile', animal_id=a.id) }}">Medical file</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if pagination %}<div class="p-3">{{ ui.pagination(pagination) }}</div>{% endif %}
+  {% else %}
+    {% if view == 'due' %}
+      {{ ui.empty_state('bi-shield-check', 'Nothing is due in the next ' ~ days ~ ' days', 'Booster doses show up here as their due dates come closer.', url_for('medical.vaccinations', view='recent'), 'See recent vaccinations') }}
+    {% else %}
+      {{ ui.empty_state('bi-shield', 'No vaccinations recorded yet', 'Vaccinations given by veterinarians will be listed here.') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

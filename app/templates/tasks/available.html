@@ -1,0 +1,45 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'tasks/_macros.html' as tm %}
+{% set page_title = "Find a task" %}
+{% set page_subtitle = "Open tasks that still need volunteers" %}
+{% set crumbs = [("Volunteer", None), ("Available tasks", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('tasks.mine') }}"><i class="bi bi-list-check"></i> My tasks</a>
+{% endblock %}
+
+{% block content %}
+<div class="vstack gap-4">
+  <form method="get" class="pc-card pc-filters" role="search" aria-label="Filter tasks">
+    {{ ui.search_filter('q', q, 'Title, place or description') }}
+    {{ ui.select_filter('type', 'Type', C.TASK_TYPES, task_type) }}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q or task_type %}<a class="btn btn-link" href="{{ url_for('tasks.available') }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="vt-grid">
+      {% for t in pagination.items %}
+        {% call tm.task_card(t) %}
+          {{ ui.post_button(url_for('tasks.accept', task_id=t.id), 'Accept', 'btn btn-sm btn-primary', 'bi-check2', {'next': url_for('tasks.mine')}) }}
+        {% endcall %}
+      {% endfor %}
+    </div>
+    <div>{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    <div class="pc-card"><div class="pc-card-body">
+      {% if q or task_type %}
+        {{ ui.empty_state('bi-search', 'No open task matches your search', 'Try another word or type, or clear the search.', url_for('tasks.available'), 'Show all open tasks') }}
+      {% else %}
+        {{ ui.empty_state('bi-check2-circle', 'No open tasks right now', 'When a coordinator creates a task you can help with, you get a notification and it appears here.', url_for('tasks.mine'), 'See my tasks') }}
+      {% endif %}
+    </div></div>
+  {% endif %}
+</div>
+{% endblock %}

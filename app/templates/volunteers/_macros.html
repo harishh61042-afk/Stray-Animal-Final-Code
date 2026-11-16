@@ -1,0 +1,13 @@
+{# Small building blocks shared by the volunteer pages.   {% import 'volunteers/_macros.html' as vm %} #}
+
+{#  Skills typed as free text ("first aid, driving, dog handling") shown as small chips.  #}
+{% macro skill_chips(text, limit=3) %}
+  {% set parts = [] %}
+  {% for part in (text or '').replace('\n', ',').replace(';', ',').split(',') %}{% if part|trim %}{% set _ = parts.append(part|trim) %}{% endif %}{% endfor %}
+  {% if parts %}
+    <div class="vt-chips">
+      {% for part in parts[:limit] %}<span class="vt-chip">{{ part|truncate(26) }}</span>{% endfor %}
+      {% if parts|length > limit %}<span class="vt-chip" style="background: var(--pc-surface-3); color: var(--pc-muted)">+{{ parts|length - limit }}</span>{% endif %}
+    </div>
+  {% else %}<span class="text-body-tertiary">&mdash;</span>{% endif %}
+{% endmacro %}

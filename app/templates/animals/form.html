@@ -1,0 +1,48 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Add an animal" if registering else "Edit " ~ animal.display_name %}
+{% set page_subtitle = "Create the permanent record of an animal" if registering else animal.animal_code %}
+{% set crumbs = [("Animals", url_for('animals.index')), ("Add an animal", None)] if registering else [("Animals", url_for('animals.index')), (animal.display_name, url_for('animals.detail', animal_id=animal.id)), ("Edit", None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if registering %}<a class="btn btn-outline-primary" href="{{ url_for('animals.index') }}"><i class="bi bi-arrow-left"></i> Back to animals</a>
+  {% else %}<a class="btn btn-outline-primary" href="{{ url_for('animals.detail', animal_id=animal.id) }}"><i class="bi bi-arrow-left"></i> Back to {{ animal.display_name }}</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div>
+    {% call ui.card('Animal record', 'Fields marked * are required. You can complete the rest later.' if registering else 'Update what we know about the animal.') %}
+      <form method="post" enctype="multipart/form-data" novalidate class="an-form">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+        {% include 'animals/_form.html' %}
+        <div class="d-flex flex-wrap gap-2 pt-2">
+          {{ f.submit('Register animal' if registering else 'Save changes', 'bi-check2-circle', 'btn btn-primary btn-lg', 'Saving...') }}
+          <a class="btn btn-link" href="{{ url_for('animals.index') if registering else url_for('animals.detail', animal_id=animal.id) }}">Cancel</a>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="Good to know">
+    {% call ui.card('Good to know') %}
+      <div class="an-stack">
+        <div class="an-private"><i class="bi bi-camera"></i><div>Clear, well-lit photos help animals find a home. The cover photo is shown on the public adoption page.</div></div>
+        <div class="an-private"><i class="bi bi-heart-pulse"></i><div>The medical status is set by the veterinarian's examination records. An animal in critical condition cannot be listed for adoption.</div></div>
+        <div class="an-private"><i class="bi bi-house-heart"></i><div>Shelters only accept animals while they have free places. Only an administrator can admit an animal beyond the capacity, and the reason is recorded.</div></div>
+        {% if not registering %}<div class="an-private"><i class="bi bi-images"></i><div>Add, remove or change the cover photo on the animal's page.</div></div>{% endif %}
+      </div>
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script src="{{ url_for('static', filename='js/animal_form.js') }}"></script>
+{% endblock %}

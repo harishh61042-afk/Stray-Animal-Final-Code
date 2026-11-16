@@ -1,0 +1,303 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = animal.display_name %}
+{% set page_subtitle = animal.animal_code ~ ' · ' ~ animal.animal_type %}
+{% set crumbs = [("Animals", url_for('animals.index')), (animal.display_name, None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if perms.edit %}<a class="btn btn-outline-primary" href="{{ url_for('animals.edit', animal_id=animal.id) }}"><i class="bi bi-pencil"></i> Edit details</a>{% endif %}
+  {% if perms.medical_view %}<a class="btn btn-outline-primary" href="{{ url_for('medical.animal_profile', animal_id=animal.id) }}"><i class="bi bi-clipboard2-pulse"></i> Medical file</a>{% endif %}
+  {% if animal.is_available %}<a class="btn btn-primary" href="{{ url_for('public.animal_detail', animal_id=animal.id) }}"><i class="bi bi-box-arrow-up-right"></i> Public page</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+{% set tones = {'Reported': 'amber', 'Rescued': 'green', 'Under Medical Treatment': 'coral', 'Recovering': 'amber', 'In Shelter': 'blue', 'Available for Adoption': 'green', 'Adopted': 'blue'} %}
+<div class="an-layout">
+  <div class="an-main">
+
+    {% call ui.card() %}
+      <div class="an-hero">
+        <div class="an-hero-photo">{{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, fallback=placeholder_url(animal.animal_type)) }}</div>
+        <div>
+          <div class="an-code">{{ animal.animal_code }}</div>
+          <h2>{{ animal.display_name }}</h2>
+          <div class="an-badges">{{ ui.status_badge(animal.status) }}{{ ui.status_badge(animal.medical_status) }}{{ ui.status_badge(animal.vaccination_status) }}</div>
+          <div class="an-facts">
+            <div class="an-fact"><small>Type</small><strong>{{ animal.animal_type }}{% if animal.breed %} &middot; {{ animal.breed }}{% endif %}</strong></div>
+            <div class="an-fact"><small>Age</small><strong>{{ animal.age_display }}</strong></div>
+            <div class="an-fact"><small>Gender</small><strong>{{ animal.gender }}</strong></div>
+            <div class="an-fact"><small>Colour</small><strong>{{ animal.color or 'Not noted' }}</strong></div>
+            <div class="an-fact"><small>Rescued on</small><strong>{{ animal.rescue_date|localdate if animal.rescue_date else 'Not noted' }}</strong></div>
+            <div class="an-fact"><small>Registered</small><strong>{{ animal.created_at|localdt('%d %b %Y') }}</strong></div>
+          </div>
+        </div>
+      </div>
+    {% endcall %}
+
+    {% if animal.images or perms.edit %}
+      {% call ui.card('Photos', ((animal.images|length) ~ ' photo' ~ ('' if animal.images|length == 1 else 's')) if animal.images else 'No photos yet') %}
+        {% if animal.images %}
+          {% set cover = animal.primary_image %}
+          <div class="an-gallery-main">
+            <img id="an-gallery-main" src="{{ upload_url(C.UPLOAD_ANIMALS, cover.filename) }}" alt="{{ animal.display_name }}, cover photo"
+                 onerror="this.onerror=null;this.src='{{ placeholder_url(animal.animal_type) }}';">
+          </div>
+          <div class="an-thumbs">
+            {% for image in animal.images %}
+              <div class="an-thumb">
+                <button type="button" class="an-thumb-btn{{ ' active' if image.id == cover.id }}" data-gallery-thumb
+                        data-src="{{ upload_url(C.UPLOAD_ANIMALS, image.filename) }}" data-alt="{{ animal.display_name }}, photo {{ loop.index }}"
+                        aria-pressed="{{ 'true' if image.id == cover.id else 'false' }}" aria-label="Show photo {{ loop.index }}">
+                  <img src="{{ upload_url(C.UPLOAD_ANIMALS, image.filename) }}" alt="" loading="lazy" onerror="this.onerror=null;this.src='{{ placeholder_url(animal.animal_type) }}';">
+                  {% if image.id == cover.id %}<span class="an-cover-tag">Cover</span>{% endif %}
+                </button>
+                {% if perms.edit %}
+                  <div class="an-thumb-tools">
+                    {% if image.id != cover.id %}
+                      <form method="post" action="{{ url_for('animals.set_primary_image', image_id=image.id) }}" class="d-inline">{{ ui.csrf() }}
+                        <button class="btn btn-outline-secondary" type="submit" title="Make this the cover photo" aria-label="Make photo {{ loop.index }} the cover photo"><i class="bi bi-star"></i></button></form>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('animals.delete_image', image_id=image.id) }}" class="d-inline" data-confirm="Remove this photo? This cannot be undone.">{{ ui.csrf() }}
+                      <button class="btn btn-outline-danger" type="submit" title="Remove this photo" aria-label="Remove photo {{ loop.index }}"><i class="bi bi-trash"></i></button></form>
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          {{ ui.empty_state('bi-camera', 'No photos yet', 'A clear photo helps the animal find a home.') }}
+        {% endif %}
+        {% if perms.edit %}
+          <form method="post" action="{{ url_for('animals.add_images', animal_id=animal.id) }}" enctype="multipart/form-data" class="an-inline mt-3">
+            {{ ui.csrf() }}
+            <input class="form-control" type="file" name="images" accept="image/png,image/jpeg,image/gif,image/webp" multiple required data-preview="true" data-max-mb="8" aria-label="Choose photos to add">
+            <button class="btn btn-primary" type="submit" data-loading><i class="bi bi-upload"></i> Add photos</button>
+          </form>
+          <p class="an-note">Up to {{ max_images }} pictures at a time, 8 MB each (PNG, JPG, GIF or WEBP).</p>
+        {% endif %}
+      {% endcall %}
+    {% endif %}
+
+    {% call ui.card('About ' ~ animal.display_name) %}
+      {% if animal.description %}<p class="an-text">{{ animal.description|nl2br }}</p>{% else %}<p class="text-secondary mb-0">No description has been written yet.</p>{% endif %}
+      {% if animal.temperament %}<div class="an-subhead mt-3">Temperament</div><p class="an-text">{{ animal.temperament }}</p>{% endif %}
+    {% endcall %}
+
+    {% call ui.card('Health and care') %}
+      <div class="an-summary">
+        <div><small>Medical status</small>{{ ui.status_badge(animal.medical_status) }}</div>
+        <div><small>Vaccination</small>{{ ui.status_badge(animal.vaccination_status) }}</div>
+        <div><small>Rehabilitation</small>{{ ui.status_badge(animal.rehabilitation_status) }}</div>
+      </div>
+      {% if animal.health_condition %}<div class="an-subhead mt-3">Condition when found</div><p class="an-text">{{ animal.health_condition|nl2br }}</p>{% endif %}
+      {% if animal.rehabilitation_notes %}<div class="an-subhead mt-3">Rehabilitation notes</div><p class="an-text">{{ animal.rehabilitation_notes|nl2br }}</p>{% endif %}
+      {% if perms.medical_view %}
+        <div class="an-subhead mt-3">Veterinary file</div>
+        {% if latest_record %}
+          <p class="an-text mb-1"><strong>{{ latest_record.examination_date|localdate }}</strong> &middot; {{ latest_record.diagnosis|truncate(180) }}</p>
+        {% else %}
+          <p class="an-text text-secondary mb-1">No examination has been recorded yet.</p>
+        {% endif %}
+        {% if recent_vaccinations %}
+          <ul class="list-unstyled small mb-2">
+            {% for v in recent_vaccinations %}
+              <li><i class="bi bi-shield-check text-success"></i> {{ v.vaccine_name }}, given {{ v.vaccination_date|localdate }}{% if v.next_due_date %} &middot; next due {{ v.next_due_date|localdate }}{% endif %}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        <div class="an-inline">
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('medical.animal_profile', animal_id=animal.id) }}"><i class="bi bi-clipboard2-pulse"></i> Open the medical file</a>
+          {% if perms.medical_write %}
+            <a class="btn btn-sm btn-primary" href="{{ url_for('medical.add_record', animal_id=animal.id) }}"><i class="bi bi-plus-lg"></i> Add an examination</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card('Rescue details') %}
+      {{ ui.kv('Rescue date', animal.rescue_date|localdate if animal.rescue_date else None, 'bi-calendar-event') }}
+      {{ ui.kv('Found at', animal.rescue_location, 'bi-geo-alt') }}
+      {{ ui.kv('Rescuer', animal.rescuer.full_name if animal.rescuer else None, 'bi-person-heart') }}
+      {{ ui.kv('Registered by', animal.registrar.full_name if animal.registrar else None, 'bi-person-check') }}
+      {% if animal.report %}
+        {% set report_html %}{% if report_link %}<a class="fw-semibold" href="{{ url_for('reports.detail', report_id=animal.report.id) }}">{{ animal.report.report_code }}</a>{% else %}{{ animal.report.report_code }}{% endif %}{% endset %}
+        {{ ui.kv('Rescue report', report_html, 'bi-megaphone') }}
+      {% endif %}
+      {% if markers %}<div class="mt-3">{{ ui.map_box('animal-location-map', 240) }}</div>{% endif %}
+    {% endcall %}
+
+    {% call ui.card('Status history', 'Every change of care stage is recorded') %}
+      {% if history %}
+        {% set items = [] %}
+        {% for h in history %}
+          {% set _ = items.append({
+            'icon': 'bi-arrow-right-circle-fill', 'tone': tones.get(h.new_status, 'gray'),
+            'title': (h.old_status ~ ' → ' ~ h.new_status) if h.old_status else h.new_status,
+            'text': h.note,
+            'time': (h.changed_at|localdt) ~ (' · ' ~ h.changer.full_name if h.changer else '')}) %}
+        {% endfor %}
+        {{ ui.timeline(items) }}
+      {% else %}
+        <p class="text-secondary mb-0">No status changes have been recorded yet.</p>
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="Actions and people">
+
+    {% call ui.card('Shelter') %}
+      {% if animal.shelter %}
+        <div class="an-person mb-2">
+          <div><strong>{{ animal.shelter.shelter_name }}</strong><div class="an-mini">{{ animal.shelter.city or '' }}</div></div>
+          <a class="btn btn-sm btn-outline-primary" href="{{ url_for('shelters.detail', shelter_id=animal.shelter.id) }}">Shelter page</a>
+        </div>
+        {{ ui.kv('Admitted', admission.admitted_at|localdt('%d %b %Y') if admission else None, 'bi-box-arrow-in-down') }}
+        {% if admission and admission.capacity_override %}
+          <div class="alert alert-warning pc-alert small mt-2 mb-0" role="note"><i class="bi bi-exclamation-triangle"></i>
+            <div class="pc-alert-text">Admitted beyond the shelter's capacity{% if admission.override_reason %}: {{ admission.override_reason }}{% endif %}</div></div>
+        {% endif %}
+      {% else %}
+        <p class="text-secondary mb-0">Not placed in a shelter yet.</p>
+      {% endif %}
+
+      {% if perms.place %}
+        <div class="an-action mt-3">
+          <h3>{{ 'Move to another shelter' if animal.shelter else 'Admit to a shelter' }}</h3>
+          {% if current_user.role == C.ROLE_SHELTER %}
+            <form method="post" action="{{ url_for('animals.assign_shelter', animal_id=animal.id) }}" data-confirm="Admit {{ animal.display_name }} to your shelter?">
+              {{ ui.csrf() }}
+              <button class="btn btn-primary w-100" type="submit" data-loading><i class="bi bi-house-add"></i> Admit to our shelter</button>
+            </form>
+          {% else %}
+            <form method="post" action="{{ url_for('animals.assign_shelter', animal_id=animal.id) }}" class="an-stack">
+              {{ ui.csrf() }}
+              <select class="form-select" name="shelter_id" id="shelter_id" required aria-label="Shelter">
+                <option value="">Choose a shelter...</option>
+                {% for value, label in shelter_options %}<option value="{{ value }}"{{ ' selected' if animal.shelter_id|string == value }}>{{ label }}</option>{% endfor %}
+              </select>
+              {% if is_admin %}
+                <div id="override-box" hidden>
+                  <div class="form-check pc-check"><input class="form-check-input" type="checkbox" name="capacity_override" id="capacity_override" value="y">
+                    <label class="form-check-label" for="capacity_override">Admit even if the shelter is full</label></div>
+                  <input class="form-control mt-2" name="override_reason" maxlength="300" placeholder="Reason for exceeding the capacity" aria-label="Reason for exceeding the capacity">
+                </div>
+              {% endif %}
+              <button class="btn btn-primary w-100" type="submit" data-loading><i class="bi bi-house-add"></i> {{ 'Move animal' if animal.shelter else 'Admit animal' }}</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if perms.status and animal.shelter %}
+        <div class="an-action">
+          <h3>Discharge from the shelter</h3>
+          <form method="post" action="{{ url_for('animals.discharge', animal_id=animal.id) }}" class="an-inline" data-confirm="Discharge {{ animal.display_name }} from {{ animal.shelter.shelter_name }}?">
+            {{ ui.csrf() }}
+            <select class="form-select" name="reason" required aria-label="Reason for discharge">
+              {% for r in discharge_reasons %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-outline-danger" type="submit" data-loading>Discharge</button>
+          </form>
+          <p class="an-note">Adoptions are completed from the adoption pages, which discharge the animal automatically.</p>
+        </div>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card('Care team') %}
+      <div class="an-person">
+        <div><div class="an-subhead mb-1">Veterinarian</div>
+          {% if animal.veterinarian %}{{ ui.person(animal.veterinarian.full_name, animal.veterinarian.veterinarian_profile.clinic_name if animal.veterinarian.veterinarian_profile else None, 34) }}
+          {% else %}<span class="text-secondary">Not assigned yet</span>{% endif %}
+        </div>
+      </div>
+      {% if perms.claim %}
+        <form method="post" action="{{ url_for('animals.claim', animal_id=animal.id) }}" class="mt-3" data-confirm="Take over the medical care of {{ animal.display_name }}?">
+          {{ ui.csrf() }}<button class="btn btn-primary w-100" type="submit" data-loading><i class="bi bi-clipboard2-plus"></i> Take this case</button>
+        </form>
+      {% endif %}
+      {% if perms.assign_vet %}
+        <form method="post" action="{{ url_for('animals.assign_vet', animal_id=animal.id) }}" class="an-inline mt-3">
+          {{ ui.csrf() }}
+          <select class="form-select" name="veterinarian_id" required aria-label="Veterinarian">
+            <option value="">{{ 'Change veterinarian...' if animal.veterinarian else 'Assign a veterinarian...' }}</option>
+            {% for value, label in vet_options %}<option value="{{ value }}"{{ ' selected' if animal.veterinarian_id|string == value }}>{{ label }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-outline-primary" type="submit" data-loading>Assign</button>
+        </form>
+        {% if not vet_options %}<p class="an-note">No verified veterinarian is available yet.</p>{% endif %}
+      {% endif %}
+      <div class="mt-3">{{ ui.kv('Rescuer', animal.rescuer.full_name if animal.rescuer else None, 'bi-person-heart') }}</div>
+    {% endcall %}
+
+    {% if perms.status %}
+      {% call ui.card('Manage', 'Care stage and adoption listing') %}
+        <div class="an-action">
+          <h3>Adoption listing</h3>
+          {% if animal.is_available %}
+            <p class="an-note mt-0 mb-2">Listed for adoption{% if animal.available_since %} since {{ animal.available_since|localdt('%d %b %Y') }}{% endif %}. The public can see this animal and adopters can apply.</p>
+            <form method="post" action="{{ url_for('animals.withdraw', animal_id=animal.id) }}" class="an-inline" data-confirm="Take {{ animal.display_name }} off the adoption list? Open applications will be closed.">
+              {{ ui.csrf() }}
+              <input class="form-control" name="note" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for withdrawing">
+              <button class="btn btn-outline-danger" type="submit" data-loading>Withdraw</button>
+            </form>
+          {% else %}
+            {% set problems = rules.adoption_readiness_problems(animal.status, animal.medical_status, animal.shelter_id is not none) %}
+            {% if problems %}
+              <ul class="an-note mt-0 ps-3 mb-0">{% for p in problems %}<li>{{ p }}</li>{% endfor %}</ul>
+            {% else %}
+              <form method="post" action="{{ url_for('animals.mark_available', animal_id=animal.id) }}" data-confirm="List {{ animal.display_name }} for adoption? It will appear on the public adoption page.">
+                {{ ui.csrf() }}<button class="btn btn-primary w-100" type="submit" data-loading><i class="bi bi-balloon-heart"></i> List for adoption</button>
+              </form>
+            {% endif %}
+          {% endif %}
+          {% if active_applications is not none %}
+            <p class="an-note">{{ active_applications }} open adoption application{{ '' if active_applications == 1 else 's' }}.
+              <a href="{{ url_for('adoption.manage', animal_id=animal.id) }}">Review applications</a></p>
+          {% endif %}
+        </div>
+
+        {% if status_options %}
+          <div class="an-action">
+            <h3>Care stage</h3>
+            <form method="post" action="{{ url_for('animals.change_status', animal_id=animal.id) }}" class="an-stack" data-confirm="Change the status of {{ animal.display_name }}?">
+              {{ ui.csrf() }}
+              <select class="form-select" name="status" required aria-label="New status">
+                <option value="">Change status to...</option>
+                {% for s in status_options %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+              </select>
+              <input class="form-control" name="note" maxlength="500" placeholder="Note (optional)" aria-label="Note">
+              <button class="btn btn-outline-primary w-100" type="submit" data-loading>Update status</button>
+            </form>
+          </div>
+        {% endif %}
+
+        <div class="an-action">
+          <h3>Rehabilitation</h3>
+          <form method="post" action="{{ url_for('animals.rehab', animal_id=animal.id) }}" class="an-stack">
+            {{ ui.csrf() }}
+            <select class="form-select" name="rehabilitation_status" aria-label="Rehabilitation status">
+              {% for s in C.REHAB_STATUSES %}<option value="{{ s }}"{{ ' selected' if animal.rehabilitation_status == s }}>{{ s }}</option>{% endfor %}
+            </select>
+            <textarea class="form-control" name="rehabilitation_notes" rows="3" maxlength="2000" placeholder="Feeding, behaviour work, special needs" aria-label="Rehabilitation notes">{{ animal.rehabilitation_notes or '' }}</textarea>
+            <button class="btn btn-outline-primary w-100" type="submit" data-loading>Save progress</button>
+          </form>
+        </div>
+      {% endcall %}
+    {% endif %}
+
+    {% if animal.is_adopted %}
+      <div class="alert alert-info pc-alert mb-0" role="note"><i class="bi bi-house-heart"></i>
+        <div class="pc-alert-text"><strong>{{ animal.display_name }} has been adopted.</strong> The record is closed, so details can no longer be changed.</div></div>
+    {% endif %}
+  </aside>
+</div>
+{% if markers %}<script type="application/json" id="animal-map-data">{{ markers|tojson }}</script>{% endif %}
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script src="{{ url_for('static', filename='js/animal_detail.js') }}"></script>
+{% endblock %}

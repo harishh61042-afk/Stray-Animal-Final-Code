@@ -1,0 +1,94 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Adoption applications" %}
+{% set page_subtitle = ("Applications for " ~ focus_animal.display_name) if focus_animal else "Review the people who would like to adopt" %}
+{% set crumbs = [("Adoption", None), ("Applications", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/adoption.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('adoption.records') }}"><i class="bi bi-balloon-heart"></i> Completed adoptions</a>
+  <a class="btn btn-primary" href="{{ url_for('animals.index') }}"><i class="bi bi-heart-pulse"></i> Animal records</a>
+{% endblock %}
+
+{% block content %}
+<div class="an-kpis">
+  {{ ui.kpi('Waiting', counts.get(C.ADOPTION_PENDING, 0), 'bi-hourglass-split', 'amber', None, None, 'up', 'Not reviewed yet', url_with(show='waiting', page=None)) }}
+  {{ ui.kpi('Under review', counts.get(C.ADOPTION_UNDER_REVIEW, 0), 'bi-search', 'blue', None, None, 'up', 'Review has started') }}
+  {{ ui.kpi('Approved', counts.get(C.ADOPTION_APPROVED, 0), 'bi-patch-check', 'green', None, None, 'up', 'Waiting for the adoption day', url_with(show='approved', page=None)) }}
+  {{ ui.kpi('Completed', counts.get(C.ADOPTION_COMPLETED, 0), 'bi-balloon-heart', 'teal', None, None, 'up', 'Animals that found a home', url_with(show='completed', page=None)) }}
+</div>
+
+{% if focus_animal %}
+  <div class="alert alert-info pc-alert" role="note"><i class="bi bi-funnel"></i>
+    <div class="pc-alert-text">Showing the applications for <strong>{{ focus_animal.display_name }}</strong> ({{ focus_animal.animal_code }}).
+      <a href="{{ url_with(animal_id=None, show=None, page=None) }}">Show applications for all animals</a></div></div>
+{% endif %}
+
+{% call ui.card(flush=True) %}
+  <div class="an-tabs">
+    <div class="pc-seg" aria-label="Show">
+      {% for key, label, count in tabs %}
+        <a href="{{ url_with(show=key, page=None) }}" class="{{ 'active' if show == key }}">{{ label }} ({{ count }})</a>
+      {% endfor %}
+    </div>
+  </div>
+  <form method="get" class="pc-filters" role="search" aria-label="Filter applications">
+    <input type="hidden" name="show" value="{{ show }}">
+    {% if animal_id %}<input type="hidden" name="animal_id" value="{{ animal_id }}">{% endif %}
+    {{ ui.search_filter('q', q, 'Code, applicant, animal or city') }}
+    {% if is_admin %}{{ ui.select_filter('shelter_id', 'Shelter', shelter_options, shelter_id) }}{% endif %}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q or shelter_id %}<a class="btn btn-link" href="{{ url_with(q=None, shelter_id=None, page=None) }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead>
+          <tr><th>Application</th><th>Applicant</th><th>Animal</th>{% if is_admin %}<th>Shelter</th>{% endif %}<th>Status</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody>
+          {% for a in pagination.items %}
+            {% set animal = a.animal %}
+            <tr>
+              <td>
+                <a class="fw-semibold" href="{{ url_for('adoption.detail', application_id=a.id) }}">{{ a.application_code }}</a>
+                <span class="an-mini" title="{{ a.created_at|localdt }}">Sent {{ a.created_at|timeago }}</span>
+              </td>
+              <td>
+                {{ ui.person(a.applicant_name, a.city ~ ' · ' ~ a.applicant_phone, 32) }}
+              </td>
+              <td>
+                <a class="an-animal-cell" href="{{ url_for('animals.detail', animal_id=animal.id) }}">
+                  {{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, class_='an-avatar', fallback=placeholder_url(animal.animal_type)) }}
+                  <span><strong>{{ animal.display_name }}</strong><small>{{ animal.animal_code }} &middot; {{ animal.animal_type }}</small></span>
+                </a>
+              </td>
+              {% if is_admin %}<td>{{ animal.shelter.shelter_name if animal.shelter else '—' }}</td>{% endif %}
+              <td>{{ ui.status_badge(a.status) }}</td>
+              <td class="text-end">
+                <a class="btn btn-sm {{ 'btn-primary' if a.status in (C.ADOPTION_PENDING, C.ADOPTION_UNDER_REVIEW, C.ADOPTION_APPROVED) else 'btn-outline-primary' }}" href="{{ url_for('adoption.detail', application_id=a.id) }}">
+                  {{ 'Review' if a.status in (C.ADOPTION_PENDING, C.ADOPTION_UNDER_REVIEW) else ('Complete' if a.status == C.ADOPTION_APPROVED else 'View') }}
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q or shelter_id %}
+      {{ ui.empty_state('bi-funnel', 'No applications match your search', 'Try another word or clear the search.', url_with(q=None, shelter_id=None, page=None), 'Clear the search') }}
+    {% elif show == 'waiting' %}
+      {{ ui.empty_state('bi-check2-circle', 'Nothing is waiting for a decision', 'New applications for your animals appear here as soon as someone applies.', url_with(show='all', page=None), 'Show every application') }}
+    {% else %}
+      {{ ui.empty_state('bi-card-checklist', 'No applications in this group', 'Try another tab above.', url_with(show='all', page=None), 'Show every application') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

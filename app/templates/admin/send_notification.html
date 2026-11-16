@@ -1,0 +1,58 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Send a notice" %}
+{% set page_subtitle = "Tell people something important inside PawConnect" %}
+{% set crumbs = [("Administration", None), ("Messages", url_for('admin.messages')), ("Send a notice", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-secondary" href="{{ url_for('admin.messages') }}"><i class="bi bi-inbox"></i> Messages</a>
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div class="an-main">
+    {% call ui.card("Write the notice") %}
+      <form method="post" novalidate class="vstack gap-3" data-confirm="Send this notice now? It cannot be taken back.">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+        <div class="row g-3">
+          {{ f.field(form.target, col='col-md-6') }}
+          <div class="col-md-6" data-visible-when-field="target" data-visible-when-value="role">{{ f.field(form.role) }}</div>
+          <div class="col-md-6" data-visible-when-field="target" data-visible-when-value="user">{{ f.field(form.user_email, prefix_icon='bi-envelope') }}</div>
+          {{ f.field(form.title, col='col-12', placeholder='For example: Volunteer meeting on Saturday') }}
+          {{ f.field(form.message, col='col-12', rows=4) }}
+          {{ f.field(form.link, col='col-12', placeholder='/adopt', help='Optional. A page of this website, such as /adopt or /tasks/available. People can open it from the notice.') }}
+        </div>
+        <div>{{ f.submit('Send notice', 'bi-send', loading='Sending...') }}</div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="About notices">
+    {% call ui.card("How notices work") %}
+      <ul class="am-tips">
+        <li>A notice shows up in the bell menu and on the Notifications page of every person it is sent to.</li>
+        <li>PawConnect does <strong>not</strong> send e-mail or text messages. For those, use the contact details on each account.</li>
+        <li>Only people with an active account receive it.</li>
+        <li>Every notice is recorded in the activity log.</li>
+      </ul>
+    {% endcall %}
+
+    {% call ui.card("Recently sent") %}
+      {% if recent %}
+        {% set items = [] %}
+        {% for r in recent %}
+          {% set _ = items.append({'title': r.entry.description, 'time': r.who ~ ' · ' ~ r.entry.created_at|localdt, 'icon': 'bi-megaphone', 'tone': 'amber'}) %}
+        {% endfor %}
+        {{ ui.timeline(items) }}
+      {% else %}
+        {{ ui.empty_state('bi-megaphone', 'No notices yet', 'Notices you send appear here.') }}
+      {% endif %}
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Animals without a vet" %}
+{% set page_subtitle = "Animals waiting for a veterinarian, oldest first" %}
+{% set crumbs = [("Medical records", url_for('medical.index')), ("Animals without a vet", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}<a class="btn btn-outline-primary" href="{{ url_for('medical.index') }}"><i class="bi bi-clipboard2-pulse"></i> Medical records</a>{% endblock %}
+
+{% block content %}
+{% call ui.card(flush=True) %}
+  <form method="get" class="pc-filters" role="search" aria-label="Search animals">
+    {{ ui.search_filter('q', q, 'Name, code or breed') }}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q %}<a class="btn btn-link" href="{{ url_with(q=None, page=None) }}">Clear</a>{% endif %}
+    </div>
+  </form>
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead><tr><th>Animal</th><th>Condition</th><th>Status</th><th>Shelter</th><th>Registered</th><th class="text-end">Action</th></tr></thead>
+        <tbody>
+          {% for a in pagination.items %}
+            <tr>
+              <td>
+                <a class="an-animal-cell" href="{{ url_for('animals.detail', animal_id=a.id) }}">
+                  {{ ui.img(animal_image_url(a), a.display_name ~ ', ' ~ a.animal_type|lower, class_='an-avatar', fallback=placeholder_url(a.animal_type)) }}
+                  <span><strong>{{ a.display_name }}</strong><small>{{ a.animal_code }} &middot; {{ a.animal_type }}{% if a.breed %} &middot; {{ a.breed }}{% endif %}</small></span>
+                </a>
+              </td>
+              <td>{{ ui.status_badge(a.medical_status) }}<span class="an-mini">{{ (a.health_condition or 'No details noted')|truncate(60) }}</span></td>
+              <td>{{ ui.status_badge(a.status) }}</td>
+              <td>{{ a.shelter.shelter_name if a.shelter else 'Not placed yet' }}</td>
+              <td><span title="{{ a.created_at|localdt }}">{{ a.created_at|timeago }}</span></td>
+              <td class="text-end">
+                {% if current_user.role == C.ROLE_VETERINARIAN %}
+                  {{ ui.confirm_form(url_for('animals.claim', animal_id=a.id, next=url_with()), 'Take this case', 'Take over the medical care of ' ~ a.display_name ~ '?', 'btn btn-sm btn-primary', 'bi-clipboard2-plus') }}
+                {% else %}
+                  <a class="btn btn-sm btn-primary" href="{{ url_for('animals.detail', animal_id=a.id) }}">Assign a vet</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q %}
+      {{ ui.empty_state('bi-funnel', 'No animals match your search', 'Try another word or clear the search.', url_for('medical.unassigned'), 'Show all') }}
+    {% else %}
+      {{ ui.empty_state('bi-check2-circle', 'Every animal has a veterinarian', 'Animals appear here when they are registered and nobody looks after their health yet.') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

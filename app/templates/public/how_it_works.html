@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "How it works" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
+{% block content %}
+<section class="pb-page-head">
+  <div class="container-xxl">
+    <span class="pb-eyebrow"><i class="bi bi-diagram-3"></i> The process</span>
+    <h1>How PawConnect works</h1>
+    <p>Six steps take an animal from a street report to a new home. Everyone involved sees the same record.</p>
+  </div>
+</section>
+
+<div class="container-xxl pb-body">
+  <div class="row g-5">
+    <div class="col-lg-7">
+      <ol class="pb-journey">
+        <li>
+          <span class="pc-icon-circle"><i class="bi bi-megaphone"></i></span>
+          <div>
+            <h3>1. Someone reports an animal</h3>
+            <p>Fill in the report form with the animal type, its condition, how urgent it is, a photo and the place. Pin the location on the map or use your device location. You get a report ID such as <code>RPT-2026-00042</code>.</p>
+            <span class="pb-who">Anyone - no account needed</span>
+          </div>
+        </li>
+        <li>
+          <span class="pc-icon-circle"><i class="bi bi-clipboard-check"></i></span>
+          <div>
+            <h3>2. An administrator reviews and assigns</h3>
+            <p>The report is checked and a verified rescuer is assigned. The rescuer accepts or declines; if they decline, the administrator picks someone else.</p>
+            <span class="pb-who">Administrators and rescuers</span>
+          </div>
+        </li>
+        <li>
+          <span class="pc-icon-circle"><i class="bi bi-life-preserver"></i></span>
+          <div>
+            <h3>3. The rescue happens</h3>
+            <p>The rescuer keeps the case updated while the rescue is in progress. When the animal is safe, it is registered in PawConnect with its own record.</p>
+            <span class="pb-who">Rescuers</span>
+          </div>
+        </li>
+        <li>
+          <span class="pc-icon-circle"><i class="bi bi-heart-pulse"></i></span>
+          <div>
+            <h3>4. The animal is cared for</h3>
+            <p>A shelter with free capacity takes the animal in. Veterinarians record examinations, treatments and vaccinations, and the animal's status follows its recovery.</p>
+            <span class="pb-who">Veterinarians and shelters</span>
+          </div>
+        </li>
+        <li>
+          <span class="pc-icon-circle"><i class="bi bi-people"></i></span>
+          <div>
+            <h3>5. Volunteers lend a hand</h3>
+            <p>Approved volunteers accept tasks such as feeding, transport, shelter cleaning and adoption events, and report their progress and hours.</p>
+            <span class="pb-who">Volunteers</span>
+          </div>
+        </li>
+        <li>
+          <span class="pc-icon-circle"><i class="bi bi-balloon-heart"></i></span>
+          <div>
+            <h3>6. The animal is adopted</h3>
+            <p>When an animal is healthy it is listed for adoption. Adopters apply online, the shelter and administrators review the application, and an approved adoption is completed and recorded.</p>
+            <span class="pb-who">Adopters, shelters and administrators</span>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="col-lg-5">
+      {% call ui.card('Track a report you made') %}
+        <p class="text-secondary">Use the report ID you received together with the phone number or e-mail address you gave in the report.</p>
+        <a class="btn btn-primary" href="{{ url_for('reports.track') }}"><i class="bi bi-search"></i> Track a report</a>
+      {% endcall %}
+      <div class="mt-4"></div>
+      {% call ui.card('Common questions') %}
+        <div class="accordion pb-faq" id="pbFaq">
+          {% for question, answer in [
+            ('Do I need an account to report an animal?', 'No. Anyone can report. If you do sign in, your reports are also listed under "My reports".'),
+            ('Who can see my phone number and e-mail?', 'Only administrators and the rescuer assigned to your report. They are never shown on public pages.'),
+            ('How do rescuers, veterinarians and shelters get access?', 'They register and describe their work. An administrator verifies the account before the tools are unlocked.'),
+            ('Can I apply to adopt any animal?', 'You can apply for any animal listed as available with an adopter account. You can have one active application per animal.'),
+            ('Does PawConnect send e-mails or text messages?', 'No. Notifications appear inside PawConnect, under the bell icon and on the Notifications page.'),
+            ('What if the map does not load?', 'You can still type the address and the coordinates by hand. The rest of the form keeps working.')] %}
+          <div class="accordion-item">
+            <h3 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq{{ loop.index }}" aria-expanded="false" aria-controls="faq{{ loop.index }}">{{ question }}</button></h3>
+            <div id="faq{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#pbFaq"><div class="accordion-body">{{ answer }}</div></div>
+          </div>
+          {% endfor %}
+        </div>
+      {% endcall %}
+    </div>
+  </div>
+</div>
+{% endblock %}

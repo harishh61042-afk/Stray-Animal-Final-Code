@@ -1,0 +1,92 @@
+{# Body of the animal form, shared by "register a rescued animal", "add an animal" and "edit".
+   Needs: form (AnimalForm), registering (True when creating a record), is_admin #}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+
+<section class="pc-form-section">
+  <h3><i class="bi bi-card-heading"></i> Who is the animal?</h3>
+  <div class="row g-3">
+    {{ f.field(form.name, col='col-md-6', placeholder='Leave empty if the animal has no name yet') }}
+    {{ f.field(form.animal_type, col='col-md-3') }}
+    {{ f.field(form.gender, col='col-md-3') }}
+    {{ f.field(form.breed, col='col-md-6', placeholder='e.g. Indian pariah, mixed breed') }}
+    {{ f.field(form.age_years, col='col-md-3') }}
+    {{ f.field(form.age_extra_months, col='col-md-3') }}
+    {{ f.field(form.color, col='col-md-6', placeholder='e.g. brown with a white chest') }}
+    {{ f.field(form.temperament, col='col-md-6', placeholder='e.g. shy, friendly, good with children') }}
+    {{ f.field(form.description, col='col-12', rows=3, help='Shown on the adoption page once the animal is listed. Write it for someone who has never met the animal.') }}
+  </div>
+</section>
+
+<section class="pc-form-section">
+  <h3><i class="bi bi-geo-alt"></i> Rescue details</h3>
+  <div class="row g-3">
+    {{ f.field(form.rescue_date, col='col-md-4') }}
+    {{ f.field(form.rescue_location, col='col-md-8', placeholder='Where the animal was found', prefix_icon='bi-pin-map') }}
+    <div class="col-12">
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <button type="button" id="animal-locate" class="btn btn-soft btn-sm"><i class="bi bi-crosshair"></i> Use my current location</button>
+        <span class="pc-geo-status m-0" id="animal-geo" aria-live="polite">Click the map to mark where the animal was found (optional).</span>
+      </div>
+      {{ ui.map_box('animal-map', 260) }}
+    </div>
+    {{ f.coordinate_fields(form.latitude, form.longitude) }}
+  </div>
+</section>
+
+<section class="pc-form-section">
+  <h3><i class="bi bi-heart-pulse"></i> Health and care</h3>
+  <div class="row g-3">
+    {{ f.field(form.health_condition, col='col-12', rows=3, placeholder='Injuries, symptoms, what the rescuer saw') }}
+    {% if form.medical_status %}
+      {{ f.field(form.medical_status, col='col-md-6') }}
+    {% else %}
+      <div class="col-md-6">
+        <div class="form-label">Medical status</div>
+        <div class="form-control-plaintext">{{ ui.status_badge(animal.medical_status) }}</div>
+        <div class="form-text">This follows the veterinarian's examination records, so it cannot be edited here.</div>
+      </div>
+    {% endif %}
+    {{ f.field(form.rehabilitation_status, col='col-md-6') }}
+    {{ f.field(form.rehabilitation_notes, col='col-12', rows=2, placeholder='Feeding, behaviour work, special needs') }}
+  </div>
+</section>
+
+{% if registering %}
+<section class="pc-form-section">
+  <h3><i class="bi bi-house-heart"></i> Placement</h3>
+  <div class="row g-3">
+    {{ f.field(form.status, col='col-md-4', help='Rescued once the animal is safe with you.') }}
+    {% if own_shelter %}
+      <div class="col-md-8">
+        <div class="form-label">Shelter</div>
+        <div class="form-control-plaintext"><i class="bi bi-house-heart text-success"></i> The animal is admitted to <strong>{{ own_shelter.shelter_name }}</strong>.</div>
+        <div class="form-text">{{ own_shelter.available_capacity }} of {{ own_shelter.capacity }} places are free right now.</div>
+      </div>
+    {% else %}
+      {{ f.field(form.shelter_id, col='col-md-8', help='A shelter can only receive animals while it has free places.') }}
+    {% endif %}
+    {% if is_admin %}
+      {{ f.field(form.veterinarian_id, col='col-md-6') }}
+      <div class="col-12" id="override-box" hidden>
+        <div class="pc-alert alert alert-warning mb-0"><i class="bi bi-exclamation-triangle"></i>
+          <div class="pc-alert-text">
+            <div class="mb-2">If the chosen shelter is full you can admit the animal anyway as an administrator. A reason is required and is recorded.</div>
+            <div class="row g-2">
+              <div class="col-md-5">{{ f.field(form.capacity_override) }}</div>
+              <div class="col-md-7">{{ f.field(form.override_reason, placeholder='Reason for exceeding the capacity') }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+
+{% if registering %}
+<section class="pc-form-section">
+  <h3><i class="bi bi-camera"></i> Photos</h3>
+  {{ f.field(form.images, accept='image/png,image/jpeg,image/gif,image/webp', help='Up to ' ~ config.get('MAX_IMAGES_PER_UPLOAD', 6) ~ ' pictures at a time. The first one becomes the cover photo.') }}
+</section>
+{% endif %}

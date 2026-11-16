@@ -1,0 +1,263 @@
+{#
+  PawConnect UI macros.   Usage:  {% import 'macros/ui.html' as ui %}   then  {{ ui.status_badge(x.status) }}
+  (Constants are available as the global `C`; `url_with(page=2)` keeps current filters.)
+#}
+
+{# Hidden CSRF input for hand-written POST forms. #}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{# Soft coloured status pill. Tone comes from constants.STATUS_TONES unless given. #}
+{% macro status_badge(status, tone=None) %}
+  {%- set t = tone or (status|tone) -%}
+  <span class="pc-badge pc-badge-{{ t }}"><i class="pc-badge-dot"></i>{{ status }}</span>
+{%- endmacro %}
+
+{% macro emergency_badge(level) %}
+  <span class="pc-badge pc-badge-{{ C.EMERGENCY_TONES.get(level, 'secondary') }}"><i class="bi bi-exclamation-triangle-fill"></i>{{ level }}</span>
+{%- endmacro %}
+
+{# Initials avatar (never a broken image). #}
+{% macro avatar(name, size=36) %}
+  <span class="pc-avatar" style="--size:{{ size }}px;--bg:{{ (name or '?')|avatar_color }}" title="{{ name }}">{{ (name or '?')|initials }}</span>
+{%- endmacro %}
+
+{# Avatar + name (+ optional second line) for table cells and lists. #}
+{% macro person(name, subtitle=None, size=34) %}
+  <div class="pc-person">
+    {{ avatar(name, size) }}
+    <div class="pc-person-text"><strong>{{ name or 'Unknown' }}</strong>{% if subtitle %}<small>{{ subtitle }}</small>{% endif %}</div>
+  </div>
+{%- endmacro %}
+
+{#
+  KPI card (top gradient line, big number, trend chip, mini bars).
+    series   : list of numbers for the little bar chart (e.g. last 8 weeks) - optional
+    delta    : percent change (number) - optional; delta_good='down' when a decrease is good news
+    tone     : green | teal | amber | coral | blue
+#}
+{% macro kpi(label, value, icon='bi-activity', tone='green', series=None, delta=None, delta_good='up', hint=None, href=None) %}
+  <div class="pc-kpi pc-kpi-{{ tone }}">
+    <div class="pc-kpi-top">
+      <span class="pc-kpi-label"><i class="bi {{ icon }}"></i>{{ label }}</span>
+      {% if delta is not none %}
+        {% set good = (delta >= 0) if delta_good == 'up' else (delta <= 0) %}
+        <span class="pc-delta {{ 'pc-delta-good' if good and delta != 0 else ('pc-delta-bad' if delta != 0 else 'pc-delta-flat') }}">
+          <i class="bi {{ 'bi-arrow-up-right' if delta > 0 else ('bi-arrow-down-right' if delta < 0 else 'bi-dash') }}"></i>{{ delta|abs }}%
+        </span>
+      {% endif %}
+    </div>
+    <div class="pc-kpi-value">{{ value }}</div>
+    {% if hint %}<div class="pc-kpi-hint">{{ hint }}</div>{% endif %}
+    {% if series %}
+      {% set top = series|max %}
+      <div class="pc-spark" aria-hidden="true">
+        {% for v in series %}<i style="height:{{ 14 if not top else ([14, (v * 100 / top)|round]|max) }}%"></i>{% endfor %}
+      </div>
+    {% endif %}
+    {% if href %}<a class="stretched-link" href="{{ href }}" aria-label="{{ label }}"></a>{% endif %}
+  </div>
+{%- endmacro %}
+
+{#
+  Rounded white card.   {% call ui.card('Title', 'Subtitle', actions=some_html) %} body {% endcall %}
+    flush=True removes the body padding (for tables).
+#}
+{% macro card(title=None, subtitle=None, actions=None, flush=False, class_='') %}
+  <section class="pc-card {{ class_ }}">
+    {% if title or actions %}
+      <header class="pc-card-head">
+        <div>
+          {% if title %}<h2 class="pc-card-title">{{ title }}</h2>{% endif %}
+          {% if subtitle %}<p class="pc-card-sub">{{ subtitle }}</p>{% endif %}
+        </div>
+        {% if actions %}<div class="pc-card-actions">{{ actions }}</div>{% endif %}
+      </header>
+    {% endif %}
+    <div class="pc-card-body{{ ' pc-card-body-flush' if flush }}">{{ caller() }}</div>
+  </section>
+{%- endmacro %}
+
+{# Gradient hero card for dashboards:  {% call ui.hero('Welcome back', 'Title', 'Text') %}<a class="btn ...">..</a>{% endcall %} #}
+{% macro hero(eyebrow, title, text=None, icon='bi-stars') %}
+  <section class="pc-hero-card">
+    <div class="pc-hero-body">
+      <span class="pc-hero-eyebrow"><i class="bi {{ icon }}"></i>{{ eyebrow }}</span>
+      <h2>{{ title }}</h2>
+      {% if text %}<p>{{ text }}</p>{% endif %}
+      <div class="pc-hero-actions">{{ caller() }}</div>
+    </div>
+  </section>
+{%- endmacro %}
+
+{% macro empty_state(icon='bi-inbox', title='Nothing here yet', text=None, action_url=None, action_label=None) %}
+  <div class="pc-empty">
+    <div class="pc-empty-icon"><i class="bi {{ icon }}"></i></div>
+    <h3>{{ title }}</h3>
+    {% if text %}<p>{{ text }}</p>{% endif %}
+    {% if action_url and action_label %}<a class="btn btn-primary btn-sm" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+  </div>
+{%- endmacro %}
+
+{# Pagination for a Flask-SQLAlchemy Pagination object (keeps every filter in the URL). #}
+{% macro pagination(p) %}
+  {% if p.total > 0 %}
+  <nav class="pc-pager" aria-label="Pagination">
+    <span class="pc-pager-info">Showing {{ (p.page - 1) * p.per_page + 1 }}&ndash;{{ [p.page * p.per_page, p.total]|min }} of {{ p.total }}</span>
+    {% if p.pages > 1 %}
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item{{ ' disabled' if not p.has_prev }}"><a class="page-link" href="{{ url_with(page=p.prev_num) if p.has_prev else '#' }}" aria-label="Previous page"><i class="bi bi-chevron-left"></i></a></li>
+      {% for n in p.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+        {% if n %}
+          <li class="page-item{{ ' active' if n == p.page }}"><a class="page-link" href="{{ url_with(page=n) }}">{{ n }}</a></li>
+        {% else %}
+          <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
+        {% endif %}
+      {% endfor %}
+      <li class="page-item{{ ' disabled' if not p.has_next }}"><a class="page-link" href="{{ url_with(page=p.next_num) if p.has_next else '#' }}" aria-label="Next page"><i class="bi bi-chevron-right"></i></a></li>
+    </ul>
+    {% endif %}
+  </nav>
+  {% endif %}
+{%- endmacro %}
+
+{% macro progress(value, tone='green', height=8, label=None) %}
+  {% set v = [[value or 0, 0]|max, 100]|min %}
+  <div class="pc-progress-wrap">
+    {% if label %}<div class="pc-progress-label"><span>{{ label }}</span><strong>{{ v }}%</strong></div>{% endif %}
+    <div class="pc-progress" style="height:{{ height }}px" role="progressbar" aria-valuenow="{{ v }}" aria-valuemin="0" aria-valuemax="100">
+      <div class="pc-progress-bar pc-progress-{{ tone }}" style="width:{{ v }}%"></div>
+    </div>
+  </div>
+{%- endmacro %}
+
+{#
+  Chart.js canvas drawn by static/js/charts.js.
+    config = {"type": "bar|line|doughnut|pie|hbar", "labels": [...], "datasets": [{"label": "..", "data": [..], "color": "#hex"(optional)}]}
+  Include <script src="{{ url_for('static', filename='js/charts.js') }}"></script> and the Chart.js library once on the page
+  (the dashboard layout block `scripts` below shows how:  {{ ui.chart_scripts() }}).
+#}
+{% macro chart(id, config, height=260) %}
+  <div class="pc-chart" style="height:{{ height }}px">
+    <canvas id="{{ id }}" data-pc-chart='{{ config|tojson }}' role="img" aria-label="Chart"></canvas>
+    <div class="pc-chart-fallback" hidden><i class="bi bi-bar-chart"></i> Chart could not be loaded (check your internet connection). The numbers are still listed on this page.</div>
+  </div>
+{%- endmacro %}
+
+{# Put once in {% block scripts %} of any page that uses ui.chart(). #}
+{% macro chart_scripts() %}
+  <script src="{{ library_urls().chart_js }}"></script>
+  <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+{%- endmacro %}
+
+{# Map container used with static/js/maps.js; shows a text fallback if Leaflet or the tiles cannot load. #}
+{% macro map_box(id, height=340) %}
+  <div class="pc-map-wrap">
+    <div id="{{ id }}" class="pc-map" style="height:{{ height }}px" role="region" aria-label="Map"></div>
+    <div class="pc-map-notice" data-map-notice="{{ id }}" hidden></div>
+  </div>
+{%- endmacro %}
+
+{# Put once in {% block head_extra %} / {% block scripts %} of any page with a map. #}
+{% macro map_head() %}<link rel="stylesheet" href="{{ library_urls().leaflet_css }}">{% endmacro %}
+{% macro map_scripts() %}
+  <script src="{{ library_urls().leaflet_js }}"></script>
+  <script src="{{ url_for('static', filename='js/maps.js') }}"></script>
+{%- endmacro %}
+
+{# Image with a guaranteed fallback so the page never shows a broken image. #}
+{% macro img(src, alt='', class_='', fallback=None, width=None, height=None) %}
+  {% set fb = fallback or placeholder_url('other') %}
+  <img src="{{ src }}" alt="{{ alt }}" class="{{ class_ }}"{% if width %} width="{{ width }}"{% endif %}{% if height %} height="{{ height }}"{% endif %}
+       loading="lazy" onerror="this.onerror=null;this.src='{{ fb }}';">
+{%- endmacro %}
+
+{#
+  Small POST form-button with a confirmation dialog.
+    {{ ui.confirm_form(url_for('x.delete', id=1), 'Delete', 'Delete this record?', fields={'next': '...'}) }}
+#}
+{% macro confirm_form(action, label, message, class_='btn btn-sm btn-outline-danger', icon=None, fields=None) %}
+  <form method="post" action="{{ action }}" class="d-inline" data-confirm="{{ message }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for name, value in (fields or {}).items() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <button type="submit" class="{{ class_ }}">{% if icon %}<i class="bi {{ icon }}"></i> {% endif %}{{ label }}</button>
+  </form>
+{%- endmacro %}
+
+{# One-click POST button without a confirmation dialog. #}
+{% macro post_button(action, label, class_='btn btn-sm btn-primary', icon=None, fields=None) %}
+  <form method="post" action="{{ action }}" class="d-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for name, value in (fields or {}).items() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <button type="submit" class="{{ class_ }}" data-loading>{% if icon %}<i class="bi {{ icon }}"></i> {% endif %}{{ label }}</button>
+  </form>
+{%- endmacro %}
+
+{# Vertical activity timeline. items = [{title, text, time, icon, tone}] #}
+{% macro timeline(items) %}
+  <ol class="pc-timeline">
+    {% for item in items %}
+      <li class="pc-timeline-item pc-tone-{{ item.get('tone', 'green') }}">
+        <span class="pc-timeline-icon"><i class="bi {{ item.get('icon', 'bi-circle-fill') }}"></i></span>
+        <div class="pc-timeline-body">
+          <div class="pc-timeline-title">{{ item.title }}</div>
+          {% if item.get('text') %}<div class="pc-timeline-text">{{ item.text|nl2br }}</div>{% endif %}
+          {% if item.get('time') %}<div class="pc-timeline-time">{{ item.time }}</div>{% endif %}
+        </div>
+      </li>
+    {% endfor %}
+  </ol>
+{%- endmacro %}
+
+{# Dot-matrix share chart (like the "Performance quality" card). items = [{label, value, pct, color}] #}
+{% macro dot_matrix(items, dots=60) %}
+  <div class="pc-dots">
+    {% for item in items %}
+      {% set n = ((item.pct * dots / 100)|round|int) if item.pct else 0 %}
+      <div class="pc-dots-col">
+        <div class="pc-dots-pct" style="color:{{ item.color }}">{{ item.pct }}<small>%</small></div>
+        <div class="pc-dots-grid" style="--dot:{{ item.color }}" aria-hidden="true">
+          {% for i in range(dots) %}<i class="{{ 'on' if i < n }}"></i>{% endfor %}
+        </div>
+        <div class="pc-dots-label">{{ item.label }} <strong>{{ item.value }}</strong></div>
+      </div>
+    {% endfor %}
+  </div>
+{%- endmacro %}
+
+{# Label / value row for detail panels. #}
+{% macro kv(label, value, icon=None) %}
+  <div class="pc-kv">
+    <span class="pc-kv-label">{% if icon %}<i class="bi {{ icon }}"></i>{% endif %}{{ label }}</span>
+    <span class="pc-kv-value">{% if value is none or value == '' %}<span class="text-body-tertiary">&mdash;</span>{% else %}{{ value }}{% endif %}</span>
+  </div>
+{%- endmacro %}
+
+{# Dropdown filter used in GET filter bars; auto-submits when changed. options = list of strings or (value, label) pairs. #}
+{% macro select_filter(name, label, options, selected='') %}
+  <div class="pc-filter">
+    <label class="form-label" for="f-{{ name }}">{{ label }}</label>
+    <select class="form-select" id="f-{{ name }}" name="{{ name }}" data-auto-submit>
+      <option value="">All</option>
+      {% for opt in options %}
+        {% if opt is string %}{% set val = opt %}{% set text = opt %}{% else %}{% set val = opt[0] %}{% set text = opt[1] %}{% endif %}
+        <option value="{{ val }}"{{ ' selected' if selected|string == val|string }}>{{ text }}</option>
+      {% endfor %}
+    </select>
+  </div>
+{%- endmacro %}
+
+{# Search box for GET filter bars. #}
+{% macro search_filter(name='q', value='', placeholder='Search...', label='Search') %}
+  <div class="pc-filter pc-filter-search">
+    <label class="form-label" for="f-{{ name }}">{{ label }}</label>
+    <div class="pc-input-icon"><i class="bi bi-search"></i><input class="form-control" id="f-{{ name }}" type="search" name="{{ name }}" value="{{ value or '' }}" placeholder="{{ placeholder }}"></div>
+  </div>
+{%- endmacro %}
+
+{# Section heading with an optional link on the right. #}
+{% macro section_title(title, link_label=None, link_url=None, subtitle=None) %}
+  <div class="pc-section-title">
+    <div><h2>{{ title }}</h2>{% if subtitle %}<p>{{ subtitle }}</p>{% endif %}</div>
+    {% if link_label and link_url %}<a href="{{ link_url }}" class="pc-link-arrow">{{ link_label }} <i class="bi bi-arrow-right"></i></a>{% endif %}
+  </div>
+{%- endmacro %}

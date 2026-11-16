@@ -1,0 +1,48 @@
+/* Volunteers and volunteer tasks (prefix vt-). Uses the colour tokens defined in app.css; layout helpers (an-*) come from animals.css. */
+
+/* ---------- task cards ---------- */
+.vt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+.vt-card { display: flex; flex-direction: column; gap: .7rem; height: 100%; padding: 1.15rem 1.2rem; border: 1px solid var(--pc-border); border-radius: var(--pc-radius-md); background: var(--pc-surface); }
+.vt-card.is-overdue { border-color: var(--pc-coral); }
+.vt-card-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+.vt-type { font-size: .74rem; font-weight: 700; color: var(--pc-primary-strong); text-transform: uppercase; letter-spacing: .05em; }
+.vt-type i { margin-right: .3rem; }
+.vt-card h3 { font-size: 1.05rem; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
+.vt-card h3 a { color: inherit; text-decoration: none; }
+.vt-card h3 a:hover { color: var(--pc-primary); }
+.vt-desc { margin: 0; color: var(--pc-muted); font-size: .88rem; overflow-wrap: anywhere; }
+.vt-meta { display: grid; gap: .3rem; font-size: .84rem; color: var(--pc-muted); }
+.vt-meta i { color: var(--pc-primary); margin-right: .4rem; }
+.vt-overdue { color: var(--tone-danger); font-weight: 600; }
+.vt-card-actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: .5rem; padding-top: .35rem; }
+.vt-card-actions form { margin: 0; }
+
+/* ---------- people on a task ---------- */
+.vt-assignee { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: .6rem 1rem; align-items: center; padding: .95rem 0; border-top: 1px solid var(--pc-border); }
+.vt-assignee:first-child { border-top: 0; padding-top: 0; }
+.vt-assignee.is-inactive { opacity: .62; }
+@media (max-width: 767.98px) { .vt-assignee { grid-template-columns: minmax(0, 1fr); } }
+.vt-notes { font-size: .84rem; color: var(--pc-muted); margin: .35rem 0 0; overflow-wrap: anywhere; }
+.vt-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.vt-chip { padding: .18rem .65rem; border-radius: 999px; background: var(--pc-primary-soft); color: var(--pc-primary-strong); font-size: .78rem; font-weight: 600; }
+
+/* ---------- picking volunteers ---------- */
+.vt-pick { max-height: 280px; overflow: auto; border: 1px solid var(--pc-border); border-radius: var(--pc-radius-sm); padding: .4rem; display: grid; gap: .1rem; background: var(--pc-surface); }
+.vt-pick label { display: flex; gap: .65rem; align-items: flex-start; padding: .5rem .6rem; border-radius: 8px; cursor: pointer; }
+.vt-pick label:hover { background: var(--pc-surface-2); }
+.vt-pick input { margin-top: .25rem; flex: none; }
+.vt-pick small { display: block; color: var(--pc-muted); font-size: .78rem; }
+
+/* ---------- volunteer application ---------- */
+.vt-status { display: flex; gap: 1rem; align-items: flex-start; padding: 1.1rem 1.25rem; border-radius: var(--pc-radius-md); border: 1px solid var(--c, var(--pc-border)); background: var(--bg, var(--pc-surface-2)); }
+.vt-status > i { font-size: 1.6rem; color: var(--c, var(--pc-primary)); line-height: 1; margin-top: .1rem; }
+.vt-status h2 { font-size: 1.1rem; font-weight: 800; margin: 0 0 .25rem; }
+.vt-status p { margin: 0; color: var(--pc-muted); overflow-wrap: anywhere; }
+.vt-status.is-approved { --c: var(--pc-primary); --bg: var(--pc-primary-softer); }
+.vt-status.is-pending { --c: var(--pc-amber); --bg: rgba(245, 159, 0, .08); }
+.vt-status.is-rejected { --c: var(--pc-coral); --bg: rgba(229, 72, 77, .07); }
+.vt-bar { height: 8px; border-radius: 999px; background: var(--pc-surface-3); overflow: hidden; }
+.vt-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--pc-primary); }
+.vt-range { display: flex; align-items: center; gap: .75rem; }
+.vt-range input[type="range"] { flex: 1 1 auto; }
+.vt-range output { min-width: 3rem; text-align: right; font-weight: 700; }

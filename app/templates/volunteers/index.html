@@ -1,0 +1,71 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'volunteers/_macros.html' as vm %}
+{% set page_title = "Volunteers" %}
+{% set page_subtitle = "People who help with rescues, feeding, transport and shelter work" %}
+{% set crumbs = [("Coordination", None), ("Volunteers", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if is_admin %}<a class="btn btn-outline-primary" href="{{ url_for('volunteers.applications') }}"><i class="bi bi-person-check"></i> Applications{% if counts.get(C.APPLICATION_PENDING) %} ({{ counts.get(C.APPLICATION_PENDING) }}){% endif %}</a>{% endif %}
+  <a class="btn btn-primary" href="{{ url_for('tasks.new') }}"><i class="bi bi-plus-lg"></i> New task</a>
+{% endblock %}
+
+{% block content %}
+<div class="an-kpis">
+  {{ ui.kpi('Approved', counts.get(C.APPLICATION_APPROVED, 0), 'bi-patch-check', 'green', None, None, 'up', 'Can accept tasks') }}
+  {{ ui.kpi('Working now', working, 'bi-list-check', 'blue', None, None, 'up', 'With a task in hand') }}
+  {% if is_admin %}
+    {{ ui.kpi('Waiting for approval', counts.get(C.APPLICATION_PENDING, 0), 'bi-hourglass-split', 'amber', None, None, 'up', 'Need a decision', url_for('volunteers.applications')) }}
+    {{ ui.kpi('Not approved', counts.get(C.APPLICATION_REJECTED, 0), 'bi-x-circle', 'coral', None, None, 'up', 'Rejected applications') }}
+  {% endif %}
+</div>
+
+{% call ui.card(flush=True) %}
+  <form method="get" class="pc-filters" role="search" aria-label="Filter volunteers">
+    {{ ui.search_filter('q', q, 'Name, e-mail, skills or availability') }}
+    {% if is_admin %}{{ ui.select_filter('status', 'Application', C.VOLUNTEER_APPLICATION_STATUSES, status) }}{% endif %}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q or (is_admin and status != C.APPLICATION_APPROVED) %}<a class="btn btn-link" href="{{ url_for('volunteers.index') }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead><tr><th>Volunteer</th><th>Skills</th><th>Availability</th><th>Work</th>{% if is_admin %}<th>Application</th>{% endif %}<th class="text-end">Actions</th></tr></thead>
+        <tbody>
+          {% for v in pagination.items %}
+            {% set p = v.volunteer_profile %}
+            {% set s = stats[v.id] %}
+            <tr>
+              <td>
+                <a href="{{ url_for('volunteers.detail', user_id=v.id) }}" class="text-reset text-decoration-none">{{ ui.person(v.full_name, v.email, 34) }}</a>
+                {% if v.status != C.ACCOUNT_ACTIVE %}<span class="an-mini">Account {{ v.status|lower }}</span>{% endif %}
+              </td>
+              <td>{{ vm.skill_chips(p.skills, 3) }}</td>
+              <td>{{ p.availability or '—' }}</td>
+              <td>
+                <strong>{{ s.completed }}</strong> done{% if s.active %} &middot; {{ s.active }} active{% endif %}
+                <span class="an-mini">{{ '%g'|format(s.hours|round(1)) }} hour{{ '' if s.hours == 1 else 's' }}</span>
+              </td>
+              {% if is_admin %}<td>{{ ui.status_badge(p.application_status) }}</td>{% endif %}
+              <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('volunteers.detail', user_id=v.id) }}">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q or (is_admin and status != C.APPLICATION_APPROVED) %}
+      {{ ui.empty_state('bi-funnel', 'No volunteer matches', 'Try another word or application status.', url_for('volunteers.index'), 'Show approved volunteers') }}
+    {% else %}
+      {{ ui.empty_state('bi-people', 'No approved volunteers yet', 'Volunteers appear here after they register and an administrator approves their application.', url_for('volunteers.applications') if is_admin else None, 'Review applications' if is_admin else None) }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

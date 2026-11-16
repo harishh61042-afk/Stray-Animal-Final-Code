@@ -1,0 +1,97 @@
+{% extends "layouts/app.html" if current_user.is_authenticated else "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'shelters/_macros.html' as sm %}
+{% set place = (shelter.city or '') ~ (', ' ~ shelter.state if shelter.state else '') %}
+{% set page_title = shelter.shelter_name %}
+{% set page_subtitle = place or 'Animal shelter' %}
+{% set crumbs = [("Shelters", url_for('shelters.directory')), (shelter.shelter_name, None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if can_edit %}<a class="btn btn-outline-primary" href="{{ url_for('shelters.edit', shelter_id=shelter.id) if is_admin else url_for('shelters.my_profile') }}"><i class="bi bi-pencil"></i> Edit shelter</a>{% endif %}
+  <a class="btn btn-primary" href="{{ url_for('shelters.directory') }}"><i class="bi bi-house-heart"></i> All shelters</a>
+{% endblock %}
+
+{% block content %}
+{% if not current_user.is_authenticated %}
+<section class="pb-page-head">
+  <div class="container-xxl">
+    <span class="pb-eyebrow"><i class="bi bi-house-heart"></i> Shelter</span>
+    <h1>{{ shelter.shelter_name }}</h1>
+    <p>{{ place or 'Animal shelter' }}{% if shelter.is_verified %} &middot; Verified by PawConnect{% endif %}</p>
+  </div>
+</section>
+{% endif %}
+<div class="{{ '' if current_user.is_authenticated else 'container-xxl py-4' }}">
+  {% if not shelter.is_verified %}
+    <div class="alert alert-warning pc-alert" role="note"><i class="bi bi-hourglass-split"></i>
+      <div class="pc-alert-text"><strong>This shelter is not verified yet.</strong> Only you and PawConnect administrators can see this page until the verification is finished.</div></div>
+  {% endif %}
+  <div class="an-layout">
+    <div class="an-main">
+      {% call ui.card('About the shelter') %}
+        {% if shelter.description %}<p class="an-text">{{ shelter.description|nl2br }}</p>
+        {% else %}<p class="text-secondary mb-0">This shelter has not added a description yet.</p>{% endif %}
+        <div class="an-facts">
+          <div class="an-fact"><small>Capacity</small><strong>{{ shelter.capacity }} animals</strong></div>
+          <div class="an-fact"><small>Housed now</small><strong>{{ used }}</strong></div>
+          <div class="an-fact"><small>Free places</small><strong>{{ [shelter.capacity - used, 0]|max }}</strong></div>
+          <div class="an-fact"><small>Looking for a home</small><strong>{{ listed_total }}</strong></div>
+          <div class="an-fact"><small>Adopted from here</small><strong>{{ adopted_total }}</strong></div>
+        </div>
+      {% endcall %}
+
+      {% call ui.card('Animals looking for a home', (listed_total ~ ' available') if listed_total else None) %}
+        {% if animals %}
+          <div class="row g-4">
+            {% for a in animals %}<div class="col-sm-6 col-xxl-4">{% include 'public/_animal_card.html' %}</div>{% endfor %}
+          </div>
+          {% if listed_total > animals|length %}
+            <p class="an-note mt-3">Showing {{ animals|length }} of {{ listed_total }}. <a href="{{ url_for('public.animals', shelter_id=shelter.id) }}">See every animal from this shelter</a>.</p>
+          {% endif %}
+        {% else %}
+          {{ ui.empty_state('bi-balloon-heart', 'No animals are listed right now', 'Animals appear here once they have been treated and listed for adoption. Please check back soon.', url_for('public.animals'), 'Browse all animals') }}
+        {% endif %}
+      {% endcall %}
+    </div>
+
+    <aside class="an-side" aria-label="Contact and location">
+      {% call ui.card('Contact') %}
+        <div class="an-contact">
+          {% if shelter.address %}<div><i class="bi bi-geo-alt"></i>{{ shelter.address }}{% if shelter.city %}, {{ shelter.city }}{% endif %}{% if shelter.pincode %} {{ shelter.pincode }}{% endif %}</div>{% endif %}
+          {% if shelter.contact_phone %}<div><i class="bi bi-telephone"></i><a href="tel:{{ shelter.contact_phone|replace(' ', '') }}">{{ shelter.contact_phone }}</a></div>{% endif %}
+          {% if shelter.contact_email %}<div><i class="bi bi-envelope"></i><a href="mailto:{{ shelter.contact_email }}">{{ shelter.contact_email }}</a></div>{% endif %}
+          {% if shelter.website %}<div><i class="bi bi-globe2"></i><a href="{{ shelter.website }}" target="_blank" rel="noopener noreferrer">{{ shelter.website|replace('https://', '')|replace('http://', '')|truncate(38) }}</a></div>{% endif %}
+          {% if not (shelter.address or shelter.contact_phone or shelter.contact_email or shelter.website) %}<div class="text-secondary">No contact details have been added yet.</div>{% endif %}
+        </div>
+      {% endcall %}
+
+      {% call ui.card('Space') %}{{ sm.occupancy(shelter, used) }}{% endcall %}
+
+      {% if markers %}
+        {% call ui.card('Location') %}
+          {{ ui.map_box('shelter-map', 260) }}
+          <p class="an-chart-note"><a href="https://www.openstreetmap.org/?mlat={{ shelter.latitude }}&amp;mlon={{ shelter.longitude }}#map=16/{{ shelter.latitude }}/{{ shelter.longitude }}" target="_blank" rel="noopener noreferrer">Open in OpenStreetMap <i class="bi bi-box-arrow-up-right"></i></a></p>
+        {% endcall %}
+      {% endif %}
+    </aside>
+  </div>
+</div>
+{% if markers %}<script type="application/json" id="shelter-marker">{{ markers|tojson }}</script>{% endif %}
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script>
+    (function () {
+      var holder = document.getElementById('shelter-marker');
+      if (!holder || !document.getElementById('shelter-map') || !window.PawMap) { return; }
+      var markers = [];
+      try { markers = JSON.parse(holder.textContent || '[]'); } catch (e) { markers = []; }
+      window.PawMap.viewer({ id: 'shelter-map', markers: markers, zoom: 15 });
+    })();
+  </script>
+{% endblock %}

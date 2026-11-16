@@ -1,0 +1,50 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Register a rescued animal" %}
+{% set page_subtitle = "From report " ~ report.report_code %}
+{% set crumbs = [("Reports", url_for('rescue.manage')), (report.report_code, url_for('reports.detail', report_id=report.id)), ("Register animal", None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">
+{% endblock %}
+{% block page_actions %}<a class="btn btn-outline-primary" href="{{ url_for('reports.detail', report_id=report.id) }}"><i class="bi bi-arrow-left"></i> Back to the report</a>{% endblock %}
+
+{% block content %}
+<div class="rp-layout">
+  <div>
+    {% call ui.card('Animal record', 'Create the permanent record. You can complete the details later.') %}
+      <form method="post" enctype="multipart/form-data" novalidate class="rp-form">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+        {% include 'animals/_form.html' %}
+        <div class="d-flex flex-wrap gap-2 pt-2">
+          {{ f.submit('Register animal', 'bi-check2-circle', 'btn btn-primary btn-lg', 'Saving...') }}
+          <a class="btn btn-link" href="{{ url_for('reports.detail', report_id=report.id) }}">Cancel</a>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <aside class="rp-aside" aria-label="About the report">
+    {% call ui.card('The report') %}
+      {% if report.image_filename %}{{ ui.img(report_image_url(report), 'Photo sent with the report', class_='rp-photo mb-3', fallback=placeholder_url(report.animal_type)) }}{% endif %}
+      <div class="rp-badges mb-2">{{ ui.status_badge(report.status) }}{{ ui.emergency_badge(report.emergency_level) }}</div>
+      <div class="rp-facts mt-0">
+        <div class="rp-fact"><small>Animal</small><strong>{{ report.animal_type }}</strong></div>
+        <div class="rp-fact"><small>Condition</small><strong>{{ report.animal_condition }}</strong></div>
+        <div class="rp-fact"><small>Reported age</small><strong>{{ report.approximate_age or 'Not given' }}</strong></div>
+        <div class="rp-fact"><small>Registered</small><strong>{{ registered }} of {{ report.animal_count }}</strong></div>
+      </div>
+      {% if report.animal_count > 1 %}
+        <p class="small text-secondary mt-3 mb-0">This report mentions {{ report.animal_count }} animals. Register each animal separately: come back to this page after saving.</p>
+      {% endif %}
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script src="{{ url_for('static', filename='js/animal_form.js') }}"></script>
+{% endblock %}

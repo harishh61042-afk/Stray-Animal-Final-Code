@@ -1,0 +1,111 @@
+{% extends "layouts/app.html" if current_user.is_authenticated else "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = animal.display_name %}
+{% set page_subtitle = animal.animal_type ~ ' looking for a home' %}
+{% set crumbs = [("Adopt", url_for("public.animals")), (animal.display_name, None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
+{% block content %}
+{% set images = animal.images %}
+{% set shelter = animal.shelter %}
+<div class="{{ '' if current_user.is_authenticated else 'container-xxl py-4' }}">
+  {% if not current_user.is_authenticated %}
+    <nav aria-label="breadcrumb" class="mb-3 small"><a href="{{ url_for('public.animals') }}"><i class="bi bi-arrow-left"></i> All adoptable animals</a></nav>
+  {% endif %}
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <div class="pb-gallery-main">
+        <img id="pb-gallery-main" src="{{ animal_image_url(animal) }}" alt="{{ animal.display_name }}, {{ animal.animal_type|lower }}"
+             onerror="this.onerror=null;this.src='{{ placeholder_url(animal.animal_type) }}';">
+      </div>
+      {% if images|length > 1 %}
+        <div class="pb-thumbs" role="group" aria-label="More photos of {{ animal.display_name }}">
+          {% for image in images %}
+            <button type="button" class="pb-thumb{{ ' active' if image.id == (animal.primary_image.id if animal.primary_image else 0) }}" data-gallery-thumb
+                    data-src="{{ upload_url(C.UPLOAD_ANIMALS, image.filename) }}" data-alt="{{ image.caption or (animal.display_name ~ ', photo ' ~ loop.index) }}"
+                    aria-label="Show photo {{ loop.index }}">
+              <img src="{{ upload_url(C.UPLOAD_ANIMALS, image.filename) }}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+            </button>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {% call ui.card('About ' ~ animal.display_name, class_='mt-4') %}
+        {% if animal.description %}<p class="pc-pre">{{ animal.description }}</p>{% else %}<p class="text-secondary mb-0">The shelter has not written a story for {{ animal.display_name }} yet.</p>{% endif %}
+        {% if animal.temperament %}<div class="mt-3"><div class="small text-secondary mb-1">Temperament</div><span class="pc-chip"><i class="bi bi-emoji-smile"></i>{{ animal.temperament }}</span></div>{% endif %}
+      {% endcall %}
+    </div>
+
+    <div class="col-lg-5">
+      <div class="pb-adopt-card mb-4">
+        {% if current_user.is_authenticated and current_user.role == C.ROLE_ADOPTER %}
+          {% if existing_application %}
+            <h2>You have applied for {{ animal.display_name }}</h2>
+            <p>Your application is <strong>{{ existing_application.status|lower }}</strong>. You can follow it at any time.</p>
+            <a class="btn btn-primary w-100" href="{{ url_for('adoption.detail', application_id=existing_application.id) }}"><i class="bi bi-clipboard-check"></i> View my application</a>
+          {% else %}
+            <h2>Give {{ animal.display_name }} a home</h2>
+            <p>Fill in a short application. The shelter and the PawConnect team will review it.</p>
+            <a class="btn btn-primary btn-lg w-100" href="{{ url_for('adoption.apply', animal_id=animal.id) }}"><i class="bi bi-balloon-heart"></i> Apply to adopt</a>
+          {% endif %}
+        {% elif current_user.is_authenticated %}
+          <h2>Adoption applications</h2>
+          <p>You are signed in as <strong>{{ current_user.role_label|lower }}</strong>. Only adopter accounts can apply to adopt an animal.</p>
+        {% else %}
+          <h2>Interested in {{ animal.display_name }}?</h2>
+          <p>Sign in to your adopter account, or create one, to apply.</p>
+          <div class="d-grid gap-2">
+            <a class="btn btn-primary btn-lg" href="{{ url_for('auth.login', next=url_for('adoption.apply', animal_id=animal.id)) }}"><i class="bi bi-box-arrow-in-right"></i> Sign in to apply</a>
+            <a class="btn btn-outline-primary" href="{{ url_for('auth.register', role=C.ROLE_ADOPTER) }}"><i class="bi bi-person-plus"></i> Create an adopter account</a>
+          </div>
+        {% endif %}
+        <hr class="pc-divider">
+        <div class="small fw-semibold mb-2">What happens after you apply</div>
+        <ol class="pb-process">
+          <li>The shelter and an administrator receive your application.</li>
+          <li>They review it and may ask questions through PawConnect.</li>
+          <li>If it is approved, you complete the adoption with the shelter.</li>
+        </ol>
+      </div>
+
+      {% call ui.card('Quick facts') %}
+        <div class="pb-facts">
+          <div class="pb-fact"><small>Type</small><strong>{{ animal.animal_type }}</strong></div>
+          <div class="pb-fact"><small>Age</small><strong>{{ animal.age_months|age_text }}</strong></div>
+          <div class="pb-fact"><small>Gender</small><strong>{{ animal.gender }}</strong></div>
+          <div class="pb-fact"><small>Breed</small><strong>{{ animal.breed or 'Not known' }}</strong></div>
+          <div class="pb-fact"><small>Colour</small><strong>{{ animal.color or 'Not recorded' }}</strong></div>
+          <div class="pb-fact"><small>Vaccination</small><strong>{{ animal.vaccination_status }}</strong></div>
+          <div class="pb-fact"><small>Health</small><strong>{{ animal.medical_status }}</strong></div>
+          <div class="pb-fact"><small>Animal ID</small><strong>{{ animal.animal_code }}</strong></div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-copy-link><i class="bi bi-link-45deg"></i> <span>Copy link</span></button>
+        </div>
+      {% endcall %}
+
+      {% if shelter %}
+        {% call ui.card('Where ' ~ animal.display_name ~ ' lives', class_='mt-4') %}
+          <div class="d-flex align-items-start gap-3">
+            <span class="pc-icon-circle"><i class="bi bi-house-heart"></i></span>
+            <div>
+              <strong>{{ shelter.shelter_name }}</strong>
+              <div class="small text-secondary">{{ shelter.city or '' }}{% if shelter.city and shelter.state %}, {% endif %}{{ shelter.state or '' }}</div>
+              <a class="small fw-semibold" href="{{ url_for('shelters.detail', shelter_id=shelter.id) }}">Shelter details and contact <i class="bi bi-arrow-right"></i></a>
+            </div>
+          </div>
+        {% endcall %}
+      {% endif %}
+    </div>
+  </div>
+
+  {% if similar %}
+    <div class="mt-5">
+      {{ ui.section_title(('More ' ~ animal.animal_type|lower ~ 's' if animal.animal_type != 'Other' else 'More animals') ~ ' looking for a home', 'See all', url_for('public.animals', type=animal.animal_type)) }}
+      <div class="row g-4">
+        {% for a in similar %}<div class="col-sm-6 col-xl-4">{% include 'public/_animal_card.html' %}</div>{% endfor %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/public.js') }}"></script>{% endblock %}

@@ -1,0 +1,132 @@
+/* =====================================================================
+   Rescue module: report form, confirmation, tracking, report details,
+   case lists and the rescue map.  Uses the tokens from app.css.
+   ===================================================================== */
+
+.rp-page { display: block; }
+.rp-narrow { max-width: 980px; margin-inline: auto; }
+.rp-hp { position: absolute !important; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* ---------- report form ---------- */
+.rp-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 24px; align-items: start; }
+.rp-aside { position: sticky; top: 88px; display: grid; gap: 16px; }
+@media (max-width: 991.98px) {
+  .rp-layout { grid-template-columns: minmax(0, 1fr); }
+  .rp-aside { position: static; }
+}
+.rp-form .pc-form-section { padding: 1.4rem 0; }
+.rp-form .pc-form-section:first-of-type { padding-top: 0; }
+.rp-counter { text-align: right; font-size: .74rem; color: var(--pc-faint); margin-top: .25rem; }
+.rp-counter.over { color: var(--tone-danger); }
+
+.rp-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.rp-level-input { position: absolute; opacity: 0; pointer-events: none; }
+.rp-level {
+  position: relative; display: flex; flex-direction: column; gap: .2rem; margin: 0; cursor: pointer;
+  padding: .8rem .9rem .8rem 1.1rem; border: 1.5px solid var(--pc-border); border-radius: var(--pc-radius-md);
+  background: var(--pc-surface); transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.rp-level::before { content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 4px; border-radius: 0 4px 4px 0; background: var(--c); }
+.rp-level strong { font-size: .92rem; }
+.rp-level small { color: var(--pc-muted); font-size: .76rem; line-height: 1.35; }
+.rp-level:hover { border-color: var(--pc-border-strong); }
+.rp-level-input:checked + .rp-level {
+  border-color: var(--c); background: color-mix(in srgb, var(--c) 8%, var(--pc-surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent);
+}
+.rp-level-input:focus-visible + .rp-level { outline: 2px solid var(--c); outline-offset: 2px; }
+
+.rp-next { list-style: none; margin: 0; padding: 0; display: grid; gap: .9rem; counter-reset: n; }
+.rp-next li { position: relative; padding-left: 2.4rem; font-size: .88rem; color: var(--pc-muted); counter-increment: n; }
+.rp-next li strong { display: block; color: var(--pc-text); font-size: .9rem; }
+.rp-next li::before {
+  content: counter(n); position: absolute; left: 0; top: 0; width: 1.8rem; height: 1.8rem; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 700; font-size: .8rem; background: var(--pc-primary-soft); color: var(--pc-primary-strong);
+}
+.rp-tips { margin: 0; padding-left: 1.1rem; color: var(--pc-muted); font-size: .86rem; display: grid; gap: .4rem; }
+
+/* ---------- confirmation ---------- */
+.rp-success { text-align: center; padding: 28px 16px 4px; }
+.rp-success-icon {
+  width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 1rem;
+  background: var(--pc-primary-soft); color: var(--pc-primary); font-size: 2.2rem;
+}
+.rp-success h1 { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800; letter-spacing: -.02em; margin-bottom: .5rem; }
+.rp-success p { color: var(--pc-muted); max-width: 36rem; margin: 0 auto; }
+.rp-code {
+  display: inline-flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; margin: 1.3rem auto;
+  padding: .9rem 1.3rem; border: 2px dashed var(--pc-primary); border-radius: var(--pc-radius-md); background: var(--pc-primary-softer);
+}
+.rp-code small { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--pc-muted); text-align: left; }
+.rp-code strong { font-size: 1.6rem; letter-spacing: .04em; font-variant-numeric: tabular-nums; color: var(--pc-primary-strong); }
+
+/* ---------- progress steps ---------- */
+.rp-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.rp-step { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .45rem; padding: 0 .25rem; font-size: .76rem; color: var(--pc-muted); }
+.rp-step::before { content: ""; position: absolute; top: 15px; right: 50%; width: 100%; height: 3px; background: var(--pc-border); }
+.rp-step:first-child::before { display: none; }
+.rp-step-done::before, .rp-step-current::before { background: var(--pc-primary); }
+.rp-step-dot {
+  position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 700; font-size: .8rem; background: var(--pc-surface-3); color: var(--pc-faint); border: 3px solid var(--pc-surface);
+}
+.rp-step-done .rp-step-dot { background: var(--pc-primary); color: #fff; }
+.rp-step-current .rp-step-dot { background: var(--pc-surface); color: var(--pc-primary); border-color: var(--pc-primary); box-shadow: 0 0 0 4px var(--pc-primary-soft); }
+.rp-step-done, .rp-step-current { color: var(--pc-text); font-weight: 600; }
+@media (max-width: 575.98px) { .rp-step { font-size: .66rem; } }
+
+/* ---------- report details ---------- */
+.rp-detail { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 22px; align-items: start; }
+.rp-detail-main, .rp-detail-side { display: grid; gap: 20px; min-width: 0; align-content: start; }
+@media (max-width: 1199.98px) { .rp-detail { grid-template-columns: minmax(0, 1fr); } }
+.rp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem 1.2rem; margin-bottom: 1.4rem; }
+.rp-head h2 { font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; margin: 0; }
+.rp-head small { color: var(--pc-muted); }
+.rp-badges { display: flex; flex-wrap: wrap; gap: .45rem; }
+.rp-photo { width: 100%; max-height: 380px; object-fit: cover; border-radius: var(--pc-radius-md); background: var(--pc-surface-3); }
+.rp-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 22px; margin-top: 1.1rem; }
+.rp-fact small { display: block; font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--pc-muted); margin-bottom: .1rem; }
+.rp-fact strong { font-weight: 600; font-size: .92rem; overflow-wrap: anywhere; }
+.rp-action { border-left: 4px solid var(--pc-primary); }
+.rp-action.is-urgent { border-left-color: var(--pc-amber); }
+.rp-stack > * + * { margin-top: 1rem; }
+.rp-subhead { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--pc-muted); margin: 0 0 .5rem; }
+.rp-links { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; }
+.rp-private { display: flex; gap: .6rem; align-items: flex-start; font-size: .84rem; color: var(--pc-muted); }
+.rp-private i { color: var(--pc-primary); margin-top: .15rem; }
+.rp-animal-link { display: flex; align-items: center; gap: .75rem; padding: .65rem .8rem; border-radius: var(--pc-radius-sm); background: var(--pc-surface-2); color: var(--pc-text); text-decoration: none; }
+.rp-animal-link:hover { background: var(--pc-primary-softer); color: var(--pc-text); }
+.rp-animal-link img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; background: var(--pc-surface-3); }
+.rp-animal-link small { display: block; color: var(--pc-muted); }
+
+/* ---------- case cards and lists ---------- */
+.rp-case {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; align-items: center; padding: 1rem 1.1rem;
+  border: 1px solid var(--pc-border); border-left: 4px solid var(--c, var(--pc-primary)); border-radius: var(--pc-radius-md); background: var(--pc-surface);
+}
+.rp-case + .rp-case { margin-top: .85rem; }
+.rp-case h3 { font-size: 1rem; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.rp-case-meta { color: var(--pc-muted); font-size: .82rem; display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .35rem; }
+.rp-case-meta i { color: var(--pc-primary); margin-right: .2rem; }
+.rp-case-note { margin-top: .5rem; font-size: .84rem; background: var(--pc-surface-2); border-radius: var(--pc-radius-sm); padding: .5rem .7rem; color: var(--pc-muted); }
+.rp-case-actions { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; }
+.rp-reply { grid-column: 1 / -1; display: grid; gap: .6rem; padding-top: .8rem; border-top: 1px dashed var(--pc-border-strong); }
+.rp-reply-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: stretch; }
+.rp-reply-row .form-control { flex: 1 1 240px; }
+@media (max-width: 767.98px) { .rp-case { grid-template-columns: minmax(0, 1fr); } .rp-case-actions { justify-content: flex-start; } }
+.rp-inline-assign { display: flex; gap: .35rem; align-items: center; justify-content: flex-end; }
+.rp-inline-assign .form-select { width: 11.5rem; max-width: 100%; }
+.rp-mini { display: block; color: var(--pc-muted); font-size: .78rem; }
+.rp-overdue { color: var(--tone-danger); font-weight: 600; }
+.rp-tabs { display: flex; flex-wrap: wrap; gap: .75rem 1rem; align-items: center; justify-content: space-between; padding: 14px 22px 0; }
+
+/* ---------- rescue map ---------- */
+.rp-mapgrid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 1199.98px) { .rp-mapgrid { grid-template-columns: minmax(0, 1fr); } }
+.rp-maplist { max-height: 560px; overflow: auto; display: grid; gap: .5rem; padding-right: .25rem; }
+.rp-maplist a { display: flex; gap: .6rem; align-items: flex-start; padding: .6rem .75rem; border-radius: var(--pc-radius-sm); background: var(--pc-surface-2); color: var(--pc-text); text-decoration: none; border-left: 4px solid var(--c, var(--pc-primary)); }
+.rp-maplist a:hover { background: var(--pc-primary-softer); }
+.rp-maplist strong { font-size: .88rem; display: block; }
+.rp-maplist small { color: var(--pc-muted); display: block; }
+.rp-legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .78rem; color: var(--pc-muted); }
+.rp-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); margin-right: .35rem; }

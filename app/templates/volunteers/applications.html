@@ -1,0 +1,75 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'volunteers/_macros.html' as vm %}
+{% set page_title = "Volunteer applications" %}
+{% set page_subtitle = "Approve volunteers before they can accept tasks" %}
+{% set crumbs = [("Administration", None), ("Volunteer applications", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('volunteers.index') }}"><i class="bi bi-people"></i> Volunteer directory</a>
+{% endblock %}
+
+{% block content %}
+{% set total = counts.values()|sum %}
+{% call ui.card(flush=True) %}
+  <div class="an-tabs">
+    <div class="pc-seg" aria-label="Show">
+      <a href="{{ url_with(status=C.APPLICATION_PENDING, page=None) }}" class="{{ 'active' if status == C.APPLICATION_PENDING }}">Waiting ({{ counts.get(C.APPLICATION_PENDING, 0) }})</a>
+      <a href="{{ url_with(status=C.APPLICATION_APPROVED, page=None) }}" class="{{ 'active' if status == C.APPLICATION_APPROVED }}">Approved ({{ counts.get(C.APPLICATION_APPROVED, 0) }})</a>
+      <a href="{{ url_with(status=C.APPLICATION_REJECTED, page=None) }}" class="{{ 'active' if status == C.APPLICATION_REJECTED }}">Rejected ({{ counts.get(C.APPLICATION_REJECTED, 0) }})</a>
+      <a href="{{ url_with(status='', page=None) }}" class="{{ 'active' if status not in C.VOLUNTEER_APPLICATION_STATUSES }}">All ({{ total }})</a>
+    </div>
+  </div>
+  <form method="get" class="pc-filters" role="search" aria-label="Filter applications">
+    <input type="hidden" name="status" value="{{ status }}">
+    {{ ui.search_filter('q', q, 'Name, e-mail, skills or availability') }}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q %}<a class="btn btn-link" href="{{ url_with(q=None, page=None) }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead><tr><th>Applicant</th><th>Skills</th><th>Availability</th><th>Applied</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+        <tbody>
+          {% for v in pagination.items %}
+            {% set p = v.volunteer_profile %}
+            <tr>
+              <td><a href="{{ url_for('volunteers.detail', user_id=v.id) }}" class="text-reset text-decoration-none">{{ ui.person(v.full_name, v.email, 34) }}</a></td>
+              <td>{{ vm.skill_chips(p.skills, 3) }}</td>
+              <td>{{ p.availability or '—' }}</td>
+              <td><span title="{{ p.applied_at|localdt }}">{{ p.applied_at|timeago }}</span></td>
+              <td>
+                {{ ui.status_badge(p.application_status) }}
+                {% if p.application_status == C.APPLICATION_REJECTED and p.review_note %}<span class="an-mini" title="{{ p.review_note }}">{{ p.review_note|truncate(40) }}</span>{% endif %}
+              </td>
+              <td class="text-end">
+                <div class="an-inline justify-content-end">
+                  {% if p.application_status == C.APPLICATION_PENDING %}
+                    {{ ui.confirm_form(url_for('volunteers.review', user_id=v.id), 'Approve', 'Approve ' ~ v.full_name ~ ' as a volunteer?', 'btn btn-sm btn-primary', 'bi-patch-check', {'decision': 'approve', 'next': url_with()}) }}
+                  {% endif %}
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('volunteers.detail', user_id=v.id) }}">{{ 'Review' if p.application_status == C.APPLICATION_PENDING else 'View' }}</a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q %}
+      {{ ui.empty_state('bi-funnel', 'No application matches your search', 'Try another word or clear the search.', url_with(q=None, page=None), 'Clear the search') }}
+    {% elif status == C.APPLICATION_PENDING %}
+      {{ ui.empty_state('bi-check2-circle', 'No application is waiting', 'New volunteer applications appear here after people register as volunteers.') }}
+    {% else %}
+      {{ ui.empty_state('bi-people', 'No applications in this group', 'Try another tab above.', url_with(status='', page=None), 'Show all applications') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

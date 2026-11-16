@@ -1,0 +1,89 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Volunteer tasks" %}
+{% set page_subtitle = "Create tasks, find volunteers and follow the progress" %}
+{% set crumbs = [("Coordination", None), ("Volunteer tasks", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('volunteers.index') }}"><i class="bi bi-people"></i> Volunteers</a>
+  <a class="btn btn-primary" href="{{ url_for('tasks.new') }}"><i class="bi bi-plus-lg"></i> New task</a>
+{% endblock %}
+
+{% block content %}
+{% set active = counts.get(C.TASK_ASSIGNED, 0) + counts.get(C.TASK_ACCEPTED, 0) + counts.get(C.TASK_IN_PROGRESS, 0) %}
+<div class="an-kpis">
+  {{ ui.kpi('Open', counts.get(C.TASK_AVAILABLE, 0), 'bi-megaphone', 'amber', None, None, 'up', 'Waiting for volunteers', url_with(status=C.TASK_AVAILABLE, page=None)) }}
+  {{ ui.kpi('In hand', active, 'bi-list-check', 'blue', None, None, 'up', 'Assigned, accepted or in progress') }}
+  {{ ui.kpi('Completed', counts.get(C.TASK_COMPLETED, 0), 'bi-check2-circle', 'green', None, None, 'up', 'Finished tasks', url_with(status=C.TASK_COMPLETED, page=None)) }}
+  {{ ui.kpi('Overdue', overdue, 'bi-alarm', 'coral', None, None, 'up', 'Past the deadline') }}
+</div>
+
+{% if not volunteers_ready %}
+  <div class="alert alert-warning pc-alert" role="note"><i class="bi bi-people"></i>
+    <div class="pc-alert-text"><strong>No volunteer is approved yet.</strong> Tasks can be created now, but volunteers can only accept them after an administrator approves their application.
+      {% if current_user.role == C.ROLE_ADMIN %}<a href="{{ url_for('volunteers.applications') }}">Review volunteer applications</a>{% endif %}</div></div>
+{% endif %}
+
+{% call ui.card(flush=True) %}
+  <div class="an-tabs">
+    <div class="pc-seg" aria-label="Show">
+      <a href="{{ url_with(scope=None, page=None) }}" class="{{ 'active' if scope == 'all' }}">All tasks</a>
+      <a href="{{ url_with(scope='mine', page=None) }}" class="{{ 'active' if scope == 'mine' }}">Created by me</a>
+    </div>
+  </div>
+  <form method="get" class="pc-filters" role="search" aria-label="Filter tasks">
+    {% if scope == 'mine' %}<input type="hidden" name="scope" value="mine">{% endif %}
+    {{ ui.search_filter('q', q, 'Title, description or place') }}
+    {{ ui.select_filter('status', 'Status', C.TASK_STATUSES, status) }}
+    {{ ui.select_filter('type', 'Type', C.TASK_TYPES, task_type) }}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q or status or task_type %}<a class="btn btn-link" href="{{ url_with(q=None, status=None, type=None, page=None) }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead><tr><th>Task</th><th>Deadline</th><th style="min-width: 10rem">Volunteers</th><th>Status</th><th>Created by</th><th class="text-end">Actions</th></tr></thead>
+        <tbody>
+          {% for t in pagination.items %}
+            {% set open_task = t.status not in (C.TASK_COMPLETED, C.TASK_CANCELLED) %}
+            <tr>
+              <td>
+                <a class="fw-semibold" href="{{ url_for('tasks.detail', task_id=t.id) }}">{{ t.title }}</a>
+                <span class="an-mini">{{ t.task_type }}{% if t.location_name %} &middot; {{ t.location_name }}{% endif %}</span>
+              </td>
+              <td>{% if t.due_at %}<span class="{{ 'an-overdue' if t.is_overdue }}">{{ t.due_at|localdt('%d %b, %I:%M %p') }}</span>{% else %}<span class="text-body-tertiary">&mdash;</span>{% endif %}</td>
+              <td>
+                <strong>{{ t.active_assignments|length }}</strong> of {{ t.volunteers_needed }}
+                {{ ui.progress(t.progress_percent, 'green', 6) }}
+              </td>
+              <td>{{ ui.status_badge(t.status) }}{% if t.is_overdue %}<span class="an-mini an-overdue">Overdue</span>{% endif %}</td>
+              <td>{{ t.creator.full_name if t.creator else '—' }}</td>
+              <td class="text-end">
+                <div class="an-inline justify-content-end">
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('tasks.detail', task_id=t.id) }}">Open</a>
+                  {% if open_task and (can_edit_any or t.created_by == current_user.id) %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('tasks.edit', task_id=t.id) }}"><i class="bi bi-pencil"></i> Edit</a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q or status or task_type or scope == 'mine' %}
+      {{ ui.empty_state('bi-funnel', 'No task matches these filters', 'Try another status or type, or clear the search.', url_for('tasks.manage'), 'Show all tasks') }}
+    {% else %}
+      {{ ui.empty_state('bi-list-check', 'No volunteer tasks yet', 'Create a task for feeding, transport, shelter cleaning or rescue help. Approved volunteers are notified.', url_for('tasks.new'), 'Create the first task') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

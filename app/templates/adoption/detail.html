@@ -1,0 +1,179 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'adoption/_macros.html' as am %}
+{% set status = application.status %}
+{% set page_title = "Application " ~ application.application_code %}
+{% set page_subtitle = (animal.display_name ~ ' · ' ~ application.applicant_name) if can_review else ('For ' ~ animal.display_name) %}
+{% set crumbs = [("Adoption", None), ("Applications", url_for('adoption.manage')), (application.application_code, None)] if can_review else [("Adoption", None), ("My applications", url_for('adoption.my_applications')), (application.application_code, None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/adoption.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if can_review %}
+    <a class="btn btn-outline-primary" href="{{ url_for('adoption.manage') }}"><i class="bi bi-card-checklist"></i> All applications</a>
+    <a class="btn btn-primary" href="{{ url_for('animals.detail', animal_id=animal.id) }}"><i class="bi bi-heart-pulse"></i> Animal record</a>
+  {% else %}
+    <a class="btn btn-outline-primary" href="{{ url_for('adoption.my_applications') }}"><i class="bi bi-card-checklist"></i> My applications</a>
+    {% if can_cancel %}{{ ui.confirm_form(url_for('adoption.cancel', application_id=application.id), 'Cancel application', 'Cancel your application for ' ~ animal.display_name ~ '?', 'btn btn-outline-danger', 'bi-x-lg') }}{% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div class="an-main">
+
+    {% call ui.card('Where the application stands') %}
+      <div class="an-head-row mb-3">
+        <div class="an-badges m-0">{{ ui.status_badge(status) }}</div>
+        <div class="an-mini">Sent {{ application.created_at|localdt }}{% if application.reviewed_at and status != C.ADOPTION_PENDING %} &middot; Last update {{ application.reviewed_at|localdt }}{% endif %}</div>
+      </div>
+      {% if status in (C.ADOPTION_REJECTED, C.ADOPTION_CANCELLED) %}
+        <div class="ad-callout {{ 'is-danger' if status == C.ADOPTION_REJECTED else 'is-info' }}">
+          <small>{{ 'Application rejected' if status == C.ADOPTION_REJECTED else 'Application cancelled' }}</small>
+          <p>{% if application.review_comment %}{{ application.review_comment }}{% elif status == C.ADOPTION_CANCELLED %}This application is closed and the animal is not reserved for it any more.{% else %}No reason was given.{% endif %}</p>
+        </div>
+      {% else %}
+        {{ am.steps(status) }}
+        {% if application.review_comment %}
+          <div class="ad-callout mt-4">
+            <small>{{ ('Message from ' ~ application.reviewer.full_name) if application.reviewer else 'Message from the shelter' }}</small>
+            <p>{{ application.review_comment|nl2br }}</p>
+          </div>
+        {% endif %}
+        {% if is_owner %}
+          <p class="an-note mt-3">
+            {% if status == C.ADOPTION_PENDING %}The shelter has not started the review yet. You will get a notification when something changes.
+            {% elif status == C.ADOPTION_UNDER_REVIEW %}The shelter is reviewing your application and may contact you.
+            {% elif status == C.ADOPTION_APPROVED %}Congratulations! Contact the shelter to arrange the day {{ animal.display_name }} comes home. The shelter then completes the adoption.
+            {% elif status == C.ADOPTION_COMPLETED %}{{ animal.display_name }} is now part of your family. Thank you for adopting!{% endif %}
+          </p>
+        {% endif %}
+      {% endif %}
+    {% endcall %}
+
+    {% if can_review and (can_start_review or can_approve or can_reject or can_complete) %}
+      {% call ui.card('Your decision', 'The applicant is notified of every decision.') %}
+        {% if status in (C.ADOPTION_PENDING, C.ADOPTION_UNDER_REVIEW) and animal.status != C.ANIMAL_AVAILABLE %}
+          <div class="alert alert-warning pc-alert" role="note"><i class="bi bi-exclamation-triangle"></i>
+            <div class="pc-alert-text">{{ animal.display_name }} is not listed for adoption right now ({{ animal.status }}), so this application can only be rejected.</div></div>
+        {% endif %}
+        {% if can_start_review %}
+          <div class="an-action">
+            <h3>Start the review</h3>
+            <form method="post" action="{{ url_for('adoption.review', application_id=application.id) }}" class="an-stack">
+              {{ ui.csrf() }}
+              <textarea class="form-control" name="comment" rows="2" maxlength="1000" placeholder="Optional message for the applicant" aria-label="Message for the applicant"></textarea>
+              <button class="btn btn-outline-primary" type="submit" data-loading><i class="bi bi-search"></i> Mark as under review</button>
+            </form>
+          </div>
+        {% endif %}
+        {% if can_approve %}
+          <div class="an-action">
+            <h3>Approve</h3>
+            <form method="post" action="{{ url_for('adoption.approve', application_id=application.id) }}" class="an-stack">
+              {{ ui.csrf() }}
+              <textarea class="form-control" name="comment" rows="2" maxlength="1000" placeholder="Optional message, for example when to come and meet {{ animal.display_name }}" aria-label="Message for the applicant"></textarea>
+              <button class="btn btn-primary" type="submit" data-loading data-confirm="Approve this application? Other open applications for {{ animal.display_name }} stay open until the adoption is completed."><i class="bi bi-patch-check"></i> Approve application</button>
+            </form>
+          </div>
+        {% endif %}
+        {% if can_reject %}
+          <div class="an-action">
+            <h3>Reject</h3>
+            <form method="post" action="{{ url_for('adoption.reject', application_id=application.id) }}" class="an-stack">
+              {{ ui.csrf() }}
+              <textarea class="form-control" name="comment" rows="2" maxlength="1000" required placeholder="Reason (the applicant will read this)" aria-label="Reason for rejecting"></textarea>
+              <button class="btn btn-outline-danger" type="submit" data-loading data-confirm="Reject this application?"><i class="bi bi-x-circle"></i> Reject application</button>
+            </form>
+          </div>
+        {% endif %}
+        {% if can_complete %}
+          <div class="an-action">
+            <h3>Complete the adoption</h3>
+            <form method="post" action="{{ url_for('adoption.complete', application_id=application.id) }}" class="an-stack">
+              {{ ui.csrf() }}
+              <div>
+                <label class="form-label" for="adoption_date">Adoption date</label>
+                <input class="form-control" type="date" id="adoption_date" name="adoption_date" value="{{ today.isoformat() }}" max="{{ today.isoformat() }}" required>
+              </div>
+              <textarea class="form-control" name="final_notes" rows="2" maxlength="1500" placeholder="Final notes (optional)" aria-label="Final notes"></textarea>
+              <button class="btn btn-primary" type="submit" data-loading data-confirm="Complete the adoption of {{ animal.display_name }}? The animal is marked as adopted and all other applications for it are closed."><i class="bi bi-balloon-heart"></i> Complete adoption</button>
+            </form>
+            <p class="an-note">Do this when the animal has actually gone home. It cannot be undone.</p>
+          </div>
+        {% endif %}
+      {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Applicant') %}
+      <dl class="ad-dl">
+        <dt>Name</dt><dd>{{ application.applicant_name }}</dd>
+        <dt>E-mail</dt><dd><a href="mailto:{{ application.applicant_email }}">{{ application.applicant_email }}</a></dd>
+        <dt>Phone</dt><dd><a href="tel:{{ application.applicant_phone|replace(' ', '') }}">{{ application.applicant_phone }}</a></dd>
+        <dt>Occupation</dt><dd>{{ application.occupation or 'Not given' }}</dd>
+        <dt>Address</dt><dd>{{ application.address|nl2br }}<br>{{ application.city }}{% if application.state %}, {{ application.state }}{% endif %}{% if application.pincode %} {{ application.pincode }}{% endif %}</dd>
+        <dt>Type of home</dt><dd>{{ application.housing_type }}</dd>
+        <dt>Household</dt><dd>{% if application.household_members %}{{ application.household_members }} {{ 'person' if application.household_members == 1 else 'people' }}{% else %}Not given{% endif %}</dd>
+        <dt>Other pets</dt><dd>{% if application.has_other_pets %}Yes{% if application.other_pets_details %}: {{ application.other_pets_details|nl2br }}{% endif %}{% else %}No{% endif %}</dd>
+        <dt>Experience</dt><dd>{{ application.previous_experience|nl2br if application.previous_experience else 'Not given' }}</dd>
+        <dt>Why adopt?</dt><dd>{{ application.adoption_reason|nl2br }}</dd>
+      </dl>
+      {% if adopter_stats %}
+        <p class="an-note mt-3"><i class="bi bi-person-check"></i> This person has sent {{ adopter_stats.applications }} application{{ '' if adopter_stats.applications == 1 else 's' }} and adopted {{ adopter_stats.adopted }} animal{{ '' if adopter_stats.adopted == 1 else 's' }} through PawConnect.</p>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card('History') %}
+      {{ ui.timeline(timeline) }}
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="The animal and the shelter">
+    {% call ui.card('The animal') %}
+      <div class="ad-animal">
+        <div class="ad-animal-photo">{{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, fallback=placeholder_url(animal.animal_type)) }}</div>
+        <div>
+          <div class="an-code">{{ animal.animal_code }}</div>
+          <h3>{% if can_review %}<a href="{{ url_for('animals.detail', animal_id=animal.id) }}">{{ animal.display_name }}</a>{% elif animal.is_available %}<a href="{{ url_for('public.animal_detail', animal_id=animal.id) }}">{{ animal.display_name }}</a>{% else %}{{ animal.display_name }}{% endif %}</h3>
+          <div class="an-mini">{{ animal.animal_type }}{% if animal.breed %} &middot; {{ animal.breed }}{% endif %} &middot; {{ animal.age_display }} &middot; {{ animal.gender }}</div>
+        </div>
+        <div class="an-badges m-0">{{ ui.status_badge(animal.status) }}{{ ui.status_badge(animal.vaccination_status) }}</div>
+      </div>
+    {% endcall %}
+
+    {% if shelter %}
+      {% call ui.card('Shelter') %}
+        <div class="an-contact">
+          <div><i class="bi bi-house-heart"></i><a href="{{ url_for('shelters.detail', shelter_id=shelter.id) }}">{{ shelter.shelter_name }}</a></div>
+          {% if shelter.address %}<div><i class="bi bi-geo-alt"></i>{{ shelter.address }}{% if shelter.city %}, {{ shelter.city }}{% endif %}</div>{% endif %}
+          {% if shelter.contact_phone %}<div><i class="bi bi-telephone"></i><a href="tel:{{ shelter.contact_phone|replace(' ', '') }}">{{ shelter.contact_phone }}</a></div>{% endif %}
+          {% if shelter.contact_email %}<div><i class="bi bi-envelope"></i><a href="mailto:{{ shelter.contact_email }}">{{ shelter.contact_email }}</a></div>{% endif %}
+        </div>
+      {% endcall %}
+    {% endif %}
+
+    {% if record %}
+      {% call ui.card('Adoption record') %}
+        <dl class="ad-dl" style="grid-template-columns: 110px minmax(0, 1fr)">
+          <dt>Adopted on</dt><dd>{{ record.adoption_date|localdate }}</dd>
+          {% if record.completer %}<dt>Completed by</dt><dd>{{ record.completer.full_name }}</dd>{% endif %}
+          {% if record.final_notes %}<dt>Notes</dt><dd>{{ record.final_notes|nl2br }}</dd>{% endif %}
+        </dl>
+      {% endcall %}
+    {% endif %}
+
+    {% if can_review and others %}
+      {% call ui.card('Other applications for ' ~ animal.display_name, (others|length) ~ ' more') %}
+        {% for o in others %}
+          <div class="ad-other">
+            <a href="{{ url_for('adoption.detail', application_id=o.id) }}">{{ o.applicant_name }} <span class="text-secondary">&middot; {{ o.application_code }}</span></a>
+            {{ ui.status_badge(o.status) }}
+          </div>
+        {% endfor %}
+        <p class="an-note"><a href="{{ url_for('adoption.manage', animal_id=animal.id) }}">Compare all applications for this animal</a></p>
+      {% endcall %}
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

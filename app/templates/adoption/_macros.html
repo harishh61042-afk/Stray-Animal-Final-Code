@@ -1,0 +1,43 @@
+{# Small building blocks shared by the adoption pages.   {% import 'adoption/_macros.html' as am %} #}
+{% import 'macros/ui.html' as ui %}
+
+{#  One application as a card (adopter pages).  #}
+{% macro application_card(a) %}
+  {% set animal = a.animal %}
+  <article class="ad-app">
+    <a href="{{ url_for('adoption.detail', application_id=a.id) }}" tabindex="-1" aria-hidden="true">
+      {{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, class_='ad-app-photo', fallback=placeholder_url(animal.animal_type)) }}
+    </a>
+    <div>
+      <h3><a href="{{ url_for('adoption.detail', application_id=a.id) }}">{{ animal.display_name }}</a></h3>
+      <div class="ad-app-meta">
+        <span>{{ a.application_code }}</span>
+        <span>{{ animal.animal_type }}{% if animal.breed %} &middot; {{ animal.breed }}{% endif %}</span>
+        {% if animal.shelter %}<span><i class="bi bi-house-heart"></i>{{ animal.shelter.shelter_name }}</span>{% endif %}
+        <span title="{{ a.created_at|localdt }}"><i class="bi bi-clock"></i>Sent {{ a.created_at|timeago }}</span>
+      </div>
+      {% if a.review_comment and a.status != C.ADOPTION_PENDING %}
+        <p class="an-note"><i class="bi bi-chat-left-text"></i> {{ a.review_comment|truncate(140) }}</p>
+      {% endif %}
+    </div>
+    <div class="ad-app-side">
+      {{ ui.status_badge(a.status) }}
+      <div class="an-inline">
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('adoption.detail', application_id=a.id) }}">View</a>
+        {% if a.can_be_cancelled %}
+          {{ ui.confirm_form(url_for('adoption.cancel', application_id=a.id), 'Cancel', 'Cancel your application for ' ~ animal.display_name ~ '?', 'btn btn-sm btn-outline-danger', 'bi-x-lg') }}
+        {% endif %}
+      </div>
+    </div>
+  </article>
+{% endmacro %}
+
+{#  The four steps of an application. Rejected and cancelled applications are shown with a message instead.  #}
+{% macro steps(status) %}
+  {% set stage = {C.ADOPTION_PENDING: 0, C.ADOPTION_UNDER_REVIEW: 1, C.ADOPTION_APPROVED: 2, C.ADOPTION_COMPLETED: 4}.get(status, 0) %}
+  <ol class="ad-steps" aria-label="Progress of the application">
+    {% for label in ['Sent', 'Under review', 'Approved', 'Adopted'] %}
+      <li class="{{ 'done' if loop.index0 < stage else ('current' if loop.index0 == stage else '') }}"{% if loop.index0 == stage %} aria-current="step"{% endif %}>{{ label }}</li>
+    {% endfor %}
+  </ol>
+{% endmacro %}

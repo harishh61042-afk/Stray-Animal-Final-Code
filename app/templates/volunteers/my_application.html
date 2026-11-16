@@ -1,0 +1,99 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% import 'volunteers/_macros.html' as vm %}
+{% set status = profile.application_status %}
+{% set page_title = "My volunteer application" %}
+{% set page_subtitle = "An administrator approves every volunteer before they can accept tasks" %}
+{% set crumbs = [("Volunteer", None), ("My application", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if profile.is_approved %}
+    <a class="btn btn-outline-primary" href="{{ url_for('tasks.mine') }}"><i class="bi bi-list-check"></i> My tasks</a>
+    <a class="btn btn-primary" href="{{ url_for('tasks.available') }}"><i class="bi bi-search-heart"></i> Find a task</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div class="an-main">
+
+    {% if status == C.APPLICATION_APPROVED %}
+      <div class="vt-status is-approved"><i class="bi bi-patch-check-fill"></i>
+        <div><h2>You are an approved volunteer</h2>
+          <p>You can accept volunteer tasks now. {% if profile.reviewed_at %}Approved on {{ profile.reviewed_at|localdt('%d %b %Y') }}.{% endif %}{% if profile.review_note %} Note from the administrator: {{ profile.review_note }}{% endif %}</p></div></div>
+    {% elif status == C.APPLICATION_REJECTED %}
+      <div class="vt-status is-rejected"><i class="bi bi-x-octagon-fill"></i>
+        <div><h2>Your application was not approved</h2>
+          <p>{% if profile.review_note %}Reason: {{ profile.review_note }}{% else %}No reason was given.{% endif %} You can improve your answers below and apply again.</p></div></div>
+    {% else %}
+      <div class="vt-status is-pending"><i class="bi bi-hourglass-split"></i>
+        <div><h2>Your application is waiting for approval</h2>
+          <p>An administrator will review it soon and you will get a notification. Sent on {{ profile.applied_at|localdt('%d %b %Y') }}. You can still change your answers below.</p></div></div>
+    {% endif %}
+
+    {% if can_edit %}
+      {% call ui.card('Your application', 'Fields marked * are required.') %}
+        <form method="post" action="{{ url_for('volunteers.resubmit') }}" novalidate class="an-form">
+          {{ form.hidden_tag() }}
+          {{ f.form_errors(form) }}
+          <section class="pc-form-section">
+            <h3><i class="bi bi-stars"></i> About you</h3>
+            <div class="row g-3">
+              {{ f.field(form.skills, col='col-12', rows=3, help='For example: first aid, driving, dog handling, feeding, photography.') }}
+              {{ f.field(form.availability, col='col-12', placeholder='e.g. Weekends and weekday evenings') }}
+              {{ f.field(form.experience, col='col-12', rows=3) }}
+              {{ f.field(form.motivation, col='col-12', rows=3) }}
+            </div>
+          </section>
+          <section class="pc-form-section">
+            <h3><i class="bi bi-telephone"></i> Emergency contact</h3>
+            <div class="row g-3">
+              {{ f.field(form.emergency_contact_name, col='col-md-6') }}
+              {{ f.field(form.emergency_contact_phone, col='col-md-6') }}
+            </div>
+          </section>
+          <div class="d-flex flex-wrap gap-2 pt-2">
+            {{ f.submit('Save and apply again' if status == C.APPLICATION_REJECTED else 'Save changes', 'bi-send', 'btn btn-primary btn-lg', 'Saving...') }}
+          </div>
+        </form>
+      {% endcall %}
+    {% else %}
+      {% call ui.card('Your application') %}
+        <div class="an-subhead">Skills</div><div class="mb-3">{{ vm.skill_chips(profile.skills, 12) }}</div>
+        <div class="an-subhead">Availability</div><p class="an-text">{{ profile.availability or 'Not given' }}</p>
+        {% if profile.experience %}<div class="an-subhead mt-3">Experience</div><p class="an-text">{{ profile.experience|nl2br }}</p>{% endif %}
+        {% if profile.motivation %}<div class="an-subhead mt-3">Why you volunteer</div><p class="an-text">{{ profile.motivation|nl2br }}</p>{% endif %}
+        {% if profile.emergency_contact_name or profile.emergency_contact_phone %}
+          <div class="an-subhead mt-3">Emergency contact</div>
+          <p class="an-text">{{ profile.emergency_contact_name or '' }}{% if profile.emergency_contact_name and profile.emergency_contact_phone %} &middot; {% endif %}{{ profile.emergency_contact_phone or '' }}</p>
+        {% endif %}
+        <p class="an-note">To change these details, contact an administrator.</p>
+      {% endcall %}
+    {% endif %}
+  </div>
+
+  <aside class="an-side" aria-label="Volunteer summary">
+    {% if summary %}
+      {% call ui.card('Your work so far') %}
+        <div class="an-summary">
+          <div><small>Completed</small><strong>{{ summary.completed }}</strong></div>
+          <div><small>In progress</small><strong>{{ summary.in_progress + summary.accepted }}</strong></div>
+          <div><small>Waiting for you</small><strong>{{ summary.assigned }}</strong></div>
+          <div><small>Hours</small><strong>{{ summary.hours }}</strong></div>
+        </div>
+      {% endcall %}
+    {% endif %}
+    {% call ui.card('How volunteering works') %}
+      <div class="an-stack">
+        <div class="an-private"><i class="bi bi-1-circle"></i><div>You apply with your skills and availability.</div></div>
+        <div class="an-private"><i class="bi bi-2-circle"></i><div>An administrator approves the application. Only approved volunteers can accept tasks.</div></div>
+        <div class="an-private"><i class="bi bi-3-circle"></i><div>Accept open tasks or tasks assigned to you, report your progress, then mark them as completed.</div></div>
+      </div>
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}

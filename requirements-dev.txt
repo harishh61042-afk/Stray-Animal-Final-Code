@@ -1,0 +1,3 @@
+# Extra packages for running the automated tests:  pip install -r requirements-dev.txt
+-r requirements.txt
+pytest>=8.0

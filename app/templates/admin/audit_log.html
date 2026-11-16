@@ -1,0 +1,69 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Activity log" %}
+{% set page_subtitle = "Who did what, and when" %}
+{% set crumbs = [("Administration", None), ("Activity log", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('admin.reports') }}"><i class="bi bi-bar-chart-line"></i> Reports &amp; analytics</a>
+{% endblock %}
+
+{% block content %}
+<div class="vstack gap-4">
+  {% call ui.card(flush=True) %}
+    <form method="get" class="pc-filters" role="search" aria-label="Filter the activity log">
+      {% if person %}<input type="hidden" name="user" value="{{ person.id }}">{% endif %}
+      {{ ui.search_filter('q', q, 'Words in the details or a person') }}
+      {{ ui.select_filter('kind', 'Area', kinds, kind) }}
+      {{ ui.select_filter('action', 'Action', actions, action) }}
+      <div class="pc-filter d-flex gap-2 align-items-center">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+        {% if q or kind or action %}<a class="btn btn-link" href="{{ url_with(q=None, kind=None, action=None, page=None) }}">Clear</a>{% endif %}
+      </div>
+    </form>
+    {% if person %}
+      <div class="px-3 pb-3 d-flex flex-wrap align-items-center gap-2">
+        <span class="pc-badge pc-badge-primary"><i class="bi bi-person"></i> Only {{ person.full_name }}</span>
+        <a class="btn btn-sm btn-link" href="{{ url_with(user=None, page=None) }}">Show everyone</a>
+        <a class="btn btn-sm btn-link" href="{{ url_for('admin.user_detail', user_id=person.id) }}">Open account</a>
+      </div>
+    {% endif %}
+
+    {% if entries %}
+      <div class="table-responsive">
+        <table class="table pc-table align-middle">
+          <thead><tr><th>When</th><th>Who</th><th>What happened</th><th>Details</th><th>Address</th></tr></thead>
+          <tbody>
+            {% for e in entries %}
+              <tr>
+                <td class="text-nowrap">{{ e.entry.created_at|localdt }}</td>
+                <td>{{ ui.person(e.who, None, 28) }}</td>
+                <td>
+                  <div class="fw-semibold">{{ e.title }}</div>
+                  {{ ui.status_badge(e.kind, e.tone) }}
+                </td>
+                <td class="am-detail-text">
+                  {{ e.entry.description or '—' }}
+                  {% if e.link %}<a class="ms-1" href="{{ e.link }}">Open</a>{% endif %}
+                </td>
+                <td class="text-nowrap text-muted small">{{ e.entry.ip_address or '—' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="text-muted small">{{ pagination.total }} entr{{ 'y' if pagination.total == 1 else 'ies' }}</span>
+        {{ ui.pagination(pagination) }}
+      </div>
+    {% elif q or kind or action or person %}
+      {{ ui.empty_state('bi-funnel', 'Nothing matches', 'Try other filters or clear the search.', url_for('admin.audit_log'), 'Show the whole log') }}
+    {% else %}
+      {{ ui.empty_state('bi-clock-history', 'Nothing recorded yet', 'Important actions such as reports, adoptions and account changes are listed here as they happen.') }}
+    {% endif %}
+  {% endcall %}
+</div>
+{% endblock %}

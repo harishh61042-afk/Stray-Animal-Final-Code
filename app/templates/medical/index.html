@@ -1,0 +1,90 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Medical records" %}
+{% set page_subtitle = "Health, vaccinations and the latest examination of each animal" %}
+{% set crumbs = [("Care", None), ("Medical records", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('medical.vaccinations') }}"><i class="bi bi-shield-plus"></i> Vaccinations</a>
+  {% if current_user.role in (C.ROLE_ADMIN, C.ROLE_VETERINARIAN) %}
+    <a class="btn btn-primary" href="{{ url_for('medical.unassigned') }}"><i class="bi bi-question-circle"></i> Animals without a vet</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-kpis">
+  {{ ui.kpi('Animals', kpis.total, 'bi-heart-pulse', 'green', None, None, 'up', 'Not yet adopted') }}
+  {{ ui.kpi('Critical', kpis.critical, 'bi-exclamation-triangle', 'coral', None, None, 'up', 'Need close attention' if kpis.critical else 'None critical', url_with(medical='Critical', page=None)) }}
+  {{ ui.kpi('In treatment or recovery', kpis.treatment, 'bi-bandaid', 'amber', None, None, 'up', 'Under treatment or recovering') }}
+  {{ ui.kpi('Need vaccination', kpis.vaccine, 'bi-shield-plus', 'blue', None, None, 'up', 'Not vaccinated or booster due', url_for('medical.vaccinations')) }}
+</div>
+
+{% call ui.card(flush=True) %}
+  {% if current_user.role == C.ROLE_VETERINARIAN %}
+    <div class="an-tabs">
+      <div class="pc-seg" aria-label="Which animals">
+        <a href="{{ url_with(scope=None, page=None) }}" class="{{ 'active' if scope != 'all' }}">My cases</a>
+        <a href="{{ url_with(scope='all', page=None) }}" class="{{ 'active' if scope == 'all' }}">All animals</a>
+      </div>
+    </div>
+  {% endif %}
+  <form method="get" class="pc-filters" role="search" aria-label="Filter medical records">
+    {% if scope == 'all' %}<input type="hidden" name="scope" value="all">{% endif %}
+    {{ ui.search_filter('q', q, 'Name, code or breed') }}
+    {{ ui.select_filter('medical', 'Medical status', C.MEDICAL_STATUSES, medical) }}
+    {{ ui.select_filter('vaccination', 'Vaccination', C.VACCINATION_STATUSES, vaccination) }}
+    {{ ui.select_filter('exam', 'Examinations', [('none', 'Never examined')], exam) }}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q or medical or vaccination or exam %}<a class="btn btn-link" href="{{ url_with(q=None, medical=None, vaccination=None, exam=None, page=None) }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead><tr><th>Animal</th><th>Medical status</th><th>Vaccination</th><th>Last examination</th><th>Veterinarian</th><th class="text-end">Action</th></tr></thead>
+        <tbody>
+          {% for a in pagination.items %}
+            {% set last = latest.get(a.id) %}
+            {% set next_due = due.get(a.id) %}
+            <tr>
+              <td>
+                <a class="an-animal-cell" href="{{ url_for('medical.animal_profile', animal_id=a.id) }}">
+                  {{ ui.img(animal_image_url(a), a.display_name ~ ', ' ~ a.animal_type|lower, class_='an-avatar', fallback=placeholder_url(a.animal_type)) }}
+                  <span><strong>{{ a.display_name }}</strong><small>{{ a.animal_code }} &middot; {{ a.animal_type }} &middot; {{ a.status }}</small></span>
+                </a>
+              </td>
+              <td>{{ ui.status_badge(a.medical_status) }}</td>
+              <td>
+                {{ ui.status_badge(a.vaccination_status) }}
+                {% if next_due %}<span class="an-mini {{ 'an-overdue' if next_due < today else ('an-due' if (next_due - today).days <= 14) }}">{{ 'Overdue since' if next_due < today else 'Next dose' }} {{ next_due|localdate }}</span>{% endif %}
+              </td>
+              <td>
+                {% if last %}
+                  {{ last.examination_date|localdate }}
+                  <span class="an-mini">{{ last.diagnosis|truncate(48) }}</span>
+                  {% if last.follow_up_date %}<span class="an-mini {{ 'an-overdue' if last.follow_up_date < today else '' }}">Follow-up {{ last.follow_up_date|localdate }}</span>{% endif %}
+                {% else %}<span class="text-body-tertiary">Never examined</span>{% endif %}
+              </td>
+              <td>{% if a.veterinarian %}{{ a.veterinarian.full_name }}{% else %}<span class="text-body-tertiary">Not assigned</span>{% endif %}</td>
+              <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('medical.animal_profile', animal_id=a.id) }}">Medical file</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q or medical or vaccination or exam %}
+      {{ ui.empty_state('bi-funnel', 'No animals match these filters', 'Try another status or clear the search.', url_for('medical.index', scope=('all' if scope == 'all' else None)), 'Show every animal') }}
+    {% elif current_user.role == C.ROLE_VETERINARIAN and scope != 'all' %}
+      {{ ui.empty_state('bi-clipboard2-pulse', 'You have no assigned animals yet', 'Take over a case from the animals that do not have a veterinarian yet.', url_for('medical.unassigned'), 'Find animals without a vet') }}
+    {% elif current_user.role == C.ROLE_SHELTER %}
+      {{ ui.empty_state('bi-house-heart', 'No animals in your shelter', 'Medical records of the animals you house will appear here.', url_for('shelters.admissions'), 'See admissions') }}
+    {% else %}
+      {{ ui.empty_state('bi-heart-pulse', 'No animals yet', 'Medical records appear here once animals have been registered.') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Users" %}
+{% set page_subtitle = "Every account on PawConnect" %}
+{% set crumbs = [("Administration", None), ("Users", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('admin.verifications') }}"><i class="bi bi-patch-check"></i> Verifications{% if counts.pending_verification %} <span class="badge text-bg-warning">{{ counts.pending_verification }}</span>{% endif %}</a>
+  <a class="btn btn-primary" href="{{ url_for('admin.user_create') }}"><i class="bi bi-person-plus"></i> Add user</a>
+{% endblock %}
+
+{% block content %}
+{% set status_options = [('active', 'Active'), ('inactive', 'Inactive'), ('suspended', 'Suspended')] %}
+<div class="vstack gap-4">
+  <div class="an-kpis mb-0">
+    {{ ui.kpi('Accounts', counts.total, 'bi-people', 'green', None, None, 'up', 'All account types') }}
+    {{ ui.kpi('Active', counts.status.get('active', 0), 'bi-person-check', 'teal', None, None, 'up', 'Can sign in') }}
+    {{ ui.kpi('Waiting for verification', counts.pending_verification, 'bi-patch-check', 'amber', None, None, 'up', 'Rescuers, vets and shelters', url_for('admin.verifications')) }}
+    {{ ui.kpi('Not active', counts.status.get('inactive', 0) + counts.status.get('suspended', 0), 'bi-person-slash', 'coral', None, None, 'up', 'Inactive or suspended') }}
+  </div>
+
+  {% call ui.card(flush=True) %}
+    <div class="an-tabs">
+      <div class="pc-seg" aria-label="Account type">
+        <a href="{{ url_with(role=None, page=None) }}" class="{{ 'active' if not role }}">All ({{ counts.total }})</a>
+        {% for r in C.ALL_ROLES %}
+          <a href="{{ url_with(role=r, page=None) }}" class="{{ 'active' if role == r }}">{{ C.ROLE_LABELS[r] }} ({{ counts.roles.get(r, 0) }})</a>
+        {% endfor %}
+      </div>
+    </div>
+    <form method="get" class="pc-filters" role="search" aria-label="Filter users">
+      <input type="hidden" name="role" value="{{ role }}">
+      {{ ui.search_filter('q', q, 'Name, e-mail or phone') }}
+      {{ ui.select_filter('status', 'Status', status_options, status) }}
+      {{ ui.select_filter('verification', 'Verification', C.VERIFICATION_STATUSES, verification) }}
+      <div class="pc-filter d-flex gap-2 align-items-center">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+        {% if q or status or verification %}<a class="btn btn-link" href="{{ url_with(q=None, status=None, verification=None, page=None) }}">Clear</a>{% endif %}
+      </div>
+    </form>
+
+    {% if pagination.items %}
+      <div class="table-responsive">
+        <table class="table pc-table align-middle">
+          <thead><tr><th>User</th><th>Type</th><th>Status</th><th>Verification</th><th>Joined</th><th>Last sign-in</th><th class="text-end">Actions</th></tr></thead>
+          <tbody>
+            {% for u in pagination.items %}
+              <tr>
+                <td><a href="{{ url_for('admin.user_detail', user_id=u.id) }}" class="text-reset text-decoration-none">{{ ui.person(u.full_name, u.email, 34) }}</a></td>
+                <td><span class="am-role"><i class="bi {{ C.ROLE_ICONS.get(u.role, 'bi-person') }}"></i>{{ u.role_label }}</span></td>
+                <td>{{ ui.status_badge(u.status|capitalize, u.status|tone) }}</td>
+                <td>{% if u.needs_verification %}{{ ui.status_badge(u.verification_status) }}{% else %}<span class="text-body-tertiary">&mdash;</span>{% endif %}</td>
+                <td>{{ u.created_at|localdt('%d %b %Y') }}</td>
+                <td>{% if u.last_login_at %}<span title="{{ u.last_login_at|localdt }}">{{ u.last_login_at|timeago }}</span>{% else %}<span class="text-body-tertiary">Never</span>{% endif %}</td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.user_detail', user_id=u.id) }}">Manage</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3">{{ ui.pagination(pagination) }}</div>
+    {% elif q or role or status or verification %}
+      {{ ui.empty_state('bi-funnel', 'No account matches', 'Try other filters or clear the search.', url_with(q=None, role=None, status=None, verification=None, page=None), 'Show all users') }}
+    {% else %}
+      {{ ui.empty_state('bi-people', 'No accounts yet', 'Accounts appear here as people register.', url_for('admin.user_create'), 'Add a user') }}
+    {% endif %}
+  {% endcall %}
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Sign in" %}
+{% set side_title = "Welcome back to PawConnect" %}
+{% set side_text = "Sign in to coordinate rescues, care for animals and find them loving homes." %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">{% endblock %}
+{% block content %}
+<section class="container au-shell">
+  <div class="au-wrap au-wrap-narrow">
+    {% include 'auth/_side.html' %}
+    <div class="au-main">
+      <h1>Sign in</h1>
+      <p class="au-sub">Use the e-mail address and password you registered with.</p>
+      <form method="post" action="{{ url_for('auth.login', next=next_url) if next_url else url_for('auth.login') }}" novalidate>
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+        <div class="vstack gap-3">
+          {{ f.field(form.email, prefix_icon='bi-envelope', placeholder='you@example.com', autofocus=True) }}
+          {{ f.field(form.password, placeholder='Your password') }}
+          {{ f.field(form.remember) }}
+          {{ f.submit('Sign in', icon='bi-box-arrow-in-right', class_='btn btn-primary btn-lg w-100', loading='Signing in...') }}
+        </div>
+      </form>
+      <div class="au-foot">
+        <span>New to PawConnect? <a href="{{ url_for('auth.register') }}" class="fw-semibold">Create an account</a></span>
+        <span><a href="{{ url_for('auth.register_volunteer') }}">Volunteer with us</a></span>
+      </div>
+      <p class="small text-secondary mt-3 mb-0"><i class="bi bi-info-circle"></i> Forgot your password? Please ask a PawConnect administrator to reset it - a temporary password will be issued.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/auth.js') }}"></script>{% endblock %}

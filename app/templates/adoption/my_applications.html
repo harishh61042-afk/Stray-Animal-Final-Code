@@ -1,0 +1,36 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'adoption/_macros.html' as am %}
+{% set page_title = "My applications" %}
+{% set page_subtitle = "Follow your adoption requests from the first form to a new home" %}
+{% set crumbs = [("Adoption", None), ("My applications", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/adoption.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('adoption.history') }}"><i class="bi bi-clock-history"></i> Adoption history</a>
+  <a class="btn btn-primary" href="{{ url_for('public.animals') }}"><i class="bi bi-search-heart"></i> Find an animal</a>
+{% endblock %}
+
+{% block content %}
+{% call ui.card(flush=True) %}
+  <div class="an-tabs">
+    <div class="pc-seg" aria-label="Show">
+      {% for key, label, count in tabs %}
+        <a href="{{ url_with(show=(key if key != 'all' else None), page=None) }}" class="{{ 'active' if show == key }}">{{ label }} ({{ count }})</a>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="p-3 p-md-4">
+    {% if pagination.items %}
+      {% for a in pagination.items %}{{ am.application_card(a) }}{% endfor %}
+      <div class="mt-3">{{ ui.pagination(pagination) }}</div>
+    {% elif show == 'all' %}
+      {{ ui.empty_state('bi-balloon-heart', 'You have not applied for an animal yet', 'Browse the animals that are ready for a new home and send an application when you find a match.', url_for('public.animals'), 'Browse animals') }}
+    {% else %}
+      {{ ui.empty_state('bi-funnel', 'Nothing here', 'None of your applications are in this group.', url_for('adoption.my_applications'), 'Show all applications') }}
+    {% endif %}
+  </div>
+{% endcall %}
+{% endblock %}

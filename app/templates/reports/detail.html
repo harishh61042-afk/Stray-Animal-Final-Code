@@ -1,0 +1,230 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = report.report_code %}
+{% set page_subtitle = report.animal_type ~ ' - ' ~ report.location_name %}
+{% set crumbs = [("Reports", url_for('rescue.manage') if is_staff else url_for('reports.mine')), (report.report_code, None)] %}
+{% set status_labels = {'Under Review': 'Move back to review', 'Closed': 'Close the case', 'Rejected': 'Reject the report'} %}
+{% block head_extra %}
+  {% if report.has_location %}{{ ui.map_head() }}{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if is_staff %}<a class="btn btn-outline-primary" href="{{ url_for('rescue.manage') }}"><i class="bi bi-inbox"></i> All reports</a>
+  {% else %}<a class="btn btn-outline-primary" href="{{ url_for('reports.mine') }}"><i class="bi bi-list-ul"></i> My reports</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="rp-detail">
+  <div class="rp-detail-main">
+    {% call ui.card() %}
+      <div class="rp-head">
+        <div>
+          <h2>{{ report.animal_type }}{% if report.animal_count > 1 %} &times; {{ report.animal_count }}{% endif %} &middot; {{ report.animal_condition }}</h2>
+          <small>Report {{ report.report_code }} &middot; submitted {{ report.created_at|localdt }} ({{ report.created_at|timeago }})</small>
+        </div>
+        <div class="rp-badges">{{ ui.status_badge(report.status) }}{{ ui.emergency_badge(report.emergency_level) }}</div>
+      </div>
+      {% include 'reports/_progress.html' %}
+    {% endcall %}
+
+    {% call ui.card('About the animal') %}
+      {% if report.image_filename %}
+        {{ ui.img(report_image_url(report), 'Photo sent with the report', class_='rp-photo mb-3', fallback=placeholder_url(report.animal_type)) }}
+      {% endif %}
+      <p class="pc-pre mb-0">{{ report.animal_description }}</p>
+      <div class="rp-facts">
+        <div class="rp-fact"><small>Type</small><strong>{{ report.animal_type }}</strong></div>
+        <div class="rp-fact"><small>Number of animals</small><strong>{{ report.animal_count }}</strong></div>
+        <div class="rp-fact"><small>Approximate age</small><strong>{{ report.approximate_age or 'Not given' }}</strong></div>
+        <div class="rp-fact"><small>Condition</small><strong>{{ report.animal_condition }}</strong></div>
+      </div>
+      {% if report.additional_info %}
+        <hr class="pc-divider">
+        <h3 class="rp-subhead">Additional information</h3>
+        <p class="pc-pre mb-0">{{ report.additional_info }}</p>
+      {% endif %}
+    {% endcall %}
+
+    {% call ui.card('Location') %}
+      <div class="rp-fact"><strong>{{ report.location_name }}</strong><span class="rp-mini pc-pre">{{ report.address }}</span></div>
+      {% if report.has_location %}
+        <div class="mt-3">{{ ui.map_box('report-map', 260) }}</div>
+        <div class="rp-links">
+          <a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat={{ report.latitude }}&amp;mlon={{ report.longitude }}#map=17/{{ report.latitude }}/{{ report.longitude }}"><i class="bi bi-box-arrow-up-right"></i> Open in OpenStreetMap</a>
+          <a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="https://www.openstreetmap.org/directions?to={{ report.latitude }}%2C{{ report.longitude }}"><i class="bi bi-signpost-split"></i> Directions</a>
+        </div>
+        <div class="small text-secondary mt-2">Coordinates: {{ '%.5f'|format(report.latitude) }}, {{ '%.5f'|format(report.longitude) }}</div>
+      {% else %}
+        <p class="small text-secondary mt-3 mb-0">The reporter did not mark the spot on a map. Please use the address above.</p>
+      {% endif %}
+    {% endcall %}
+
+    {% if animals %}
+      {% call ui.card('Animals from this report', (animals|length) ~ ' of ' ~ report.animal_count ~ ' registered') %}
+        <div class="vstack gap-2">
+          {% for a in animals %}
+            {% set href = url_for('animals.detail', animal_id=a.id) if (is_staff or current_user.role in (C.ROLE_VETERINARIAN, C.ROLE_SHELTER)) else (url_for('public.animal_detail', animal_id=a.id) if a.status == C.ANIMAL_AVAILABLE else none) %}
+            <{{ 'a' if href else 'div' }} class="rp-animal-link"{% if href %} href="{{ href }}"{% endif %}>
+              {{ ui.img(animal_image_url(a), a.display_name, fallback=placeholder_url(a.animal_type)) }}
+              <span><strong>{{ a.display_name }}</strong><small>{{ a.animal_code }} &middot; {{ a.animal_type }}</small></span>
+              <span class="ms-auto">{{ ui.status_badge(a.status) }}</span>
+            </{{ 'a' if href else 'div' }}>
+          {% endfor %}
+        </div>
+      {% endcall %}
+    {% endif %}
+
+    {% call ui.card('Activity', 'What has happened so far') %}
+      {{ ui.timeline(timeline) }}
+    {% endcall %}
+  </div>
+
+  <div class="rp-detail-side">
+    {% if awaiting_reply %}
+      {% call ui.card('Your decision', 'This case was assigned to you', class_='rp-action is-urgent') %}
+        <div class="rp-stack">
+          {% if awaiting_reply.deadline %}<div class="small"><i class="bi bi-alarm text-warning"></i> Please finish by <strong>{{ awaiting_reply.deadline|localdt }}</strong></div>{% endif %}
+          {% if awaiting_reply.instructions %}<div><h3 class="rp-subhead">Instructions</h3><p class="pc-pre small mb-0">{{ awaiting_reply.instructions }}</p></div>{% endif %}
+          <form method="post" action="{{ url_for('rescue.respond', assignment_id=awaiting_reply.id) }}">
+            {{ ui.csrf() }}<input type="hidden" name="decision" value="accept">
+            <button type="submit" class="btn btn-primary w-100" data-loading><i class="bi bi-hand-thumbs-up"></i> Accept this case</button>
+          </form>
+          <details>
+            <summary class="small fw-semibold text-secondary" style="cursor:pointer">I cannot take this case</summary>
+            <form method="post" action="{{ url_for('rescue.respond', assignment_id=awaiting_reply.id) }}" class="mt-2" data-confirm="Decline this case? The administrator will assign someone else.">
+              {{ ui.csrf() }}<input type="hidden" name="decision" value="decline">
+              <label class="form-label small" for="decline-note">Reason (required)</label>
+              <textarea class="form-control mb-2" id="decline-note" name="note" rows="2" maxlength="500" required></textarea>
+              <button type="submit" class="btn btn-outline-danger w-100" data-loading>Decline case</button>
+            </form>
+          </details>
+        </div>
+      {% endcall %}
+    {% endif %}
+
+    {% if can_assign %}
+      {% call ui.card('Assign a rescuer', ('Currently: ' ~ report.active_assignment.rescuer.full_name) if report.active_assignment else 'Choose a verified rescuer', class_='rp-action') %}
+        {% if rescuers %}
+          <form method="post" action="{{ url_for('rescue.assign', report_id=report.id) }}" class="rp-stack">
+            {{ ui.csrf() }}
+            <div>
+              <label class="form-label" for="assign-rescuer">Rescuer</label>
+              <select class="form-select" id="assign-rescuer" name="rescuer_id" required>
+                <option value="">Choose a rescuer</option>
+                {% for r in rescuers %}
+                  {% set open_cases = workload.get(r.id, 0) %}
+                  <option value="{{ r.id }}"{{ ' disabled' if report.active_assignment and report.active_assignment.rescuer_id == r.id }}>{{ r.full_name }} ({{ open_cases }} open case{{ '' if open_cases == 1 else 's' }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="form-label" for="assign-deadline">Complete by (optional)</label>
+              <input class="form-control" type="datetime-local" id="assign-deadline" name="deadline" min="{{ utcnow()|input_dt }}">
+            </div>
+            <div>
+              <label class="form-label" for="assign-instructions">Instructions (optional)</label>
+              <textarea class="form-control" id="assign-instructions" name="instructions" rows="2" maxlength="1000" placeholder="Anything the rescuer should know before going"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary w-100" data-loading><i class="bi bi-person-check"></i> {{ 'Reassign rescuer' if report.active_assignment else 'Assign rescuer' }}</button>
+          </form>
+        {% else %}
+          {{ ui.empty_state('bi-person-x', 'No verified rescuers', 'Verify a rescuer account first, then assign the case.', url_for('admin.verifications'), 'Review verifications') }}
+        {% endif %}
+      {% endcall %}
+    {% endif %}
+
+    {% if can_register_animal or can_note or can_complete %}
+      {% call ui.card('Case work') %}
+        <div class="rp-stack">
+          {% if can_register_animal %}
+            <a class="btn btn-primary w-100" href="{{ url_for('rescue.register_animal', report_id=report.id) }}"><i class="bi bi-heart-pulse"></i> Register a rescued animal</a>
+          {% endif %}
+          {% if can_note %}
+            <form method="post" action="{{ url_for('rescue.add_note', report_id=report.id) }}" class="rp-stack">
+              {{ ui.csrf() }}
+              <label class="form-label" for="case-note">Add a note</label>
+              <textarea class="form-control" id="case-note" name="note" rows="2" maxlength="1000" required placeholder="Progress, what you found, what is needed"></textarea>
+              <button type="submit" class="btn btn-outline-primary w-100" data-loading><i class="bi bi-chat-left-text"></i> Add note</button>
+            </form>
+          {% endif %}
+          {% if can_complete %}
+            <hr class="pc-divider">
+            <form method="post" action="{{ url_for('rescue.complete', report_id=report.id) }}" class="rp-stack" data-confirm="Record the outcome and finish this case?">
+              {{ ui.csrf() }}
+              <h3 class="rp-subhead">Finish the rescue</h3>
+              <select class="form-select" name="outcome" aria-label="Outcome">
+                <option value="rescued">The animal was rescued</option>
+                <option value="not_found">The animal could not be found or rescued</option>
+              </select>
+              <textarea class="form-control" name="details" rows="3" minlength="5" maxlength="2000" required aria-label="What happened?" placeholder="What happened? Where is the animal now?"></textarea>
+              <button type="submit" class="btn btn-success w-100" data-loading><i class="bi bi-check2-circle"></i> Complete the case</button>
+            </form>
+          {% endif %}
+        </div>
+      {% endcall %}
+    {% endif %}
+
+    {% if status_options %}
+      {% call ui.card('Change status', 'Administrators only') %}
+        <form method="post" action="{{ url_for('rescue.update_status', report_id=report.id) }}" class="rp-stack" data-confirm="Change the status of this report?">
+          {{ ui.csrf() }}
+          <div>
+            <label class="form-label" for="status-select">New status</label>
+            <select class="form-select" id="status-select" name="status" required>
+              {% for s in status_options %}<option value="{{ s }}">{{ status_labels.get(s, s) }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="form-label" for="status-note">Note or reason</label>
+            <textarea class="form-control" id="status-note" name="note" rows="2" maxlength="1000" placeholder="Required when rejecting. The reporter sees the reason."></textarea>
+          </div>
+          <button type="submit" class="btn btn-outline-primary w-100" data-loading>Update status</button>
+        </form>
+      {% endcall %}
+    {% endif %}
+
+    {% if is_staff %}
+      {% call ui.card('Reporter') %}
+        {{ ui.person(report.reporter_name, 'Registered user' if report.reporter_id else 'Guest reporter', 40) }}
+        {% if show_contact %}
+          <div class="vstack gap-2 mt-3">
+            <a class="btn btn-soft btn-sm text-start" href="tel:{{ report.reporter_phone|replace(' ', '') }}"><i class="bi bi-telephone"></i> {{ report.reporter_phone }}</a>
+            {% if report.reporter_email %}<a class="btn btn-soft btn-sm text-start" href="mailto:{{ report.reporter_email }}"><i class="bi bi-envelope"></i> {{ report.reporter_email }}</a>{% endif %}
+          </div>
+        {% else %}
+          <p class="rp-private mt-3 mb-0"><i class="bi bi-shield-lock"></i><span>The reporter's phone and e-mail are shared with a rescuer once a case is assigned to them.</span></p>
+        {% endif %}
+      {% endcall %}
+
+      {% if assignment %}
+        {% call ui.card('Assignment') %}
+          {{ ui.person(assignment.rescuer.full_name, 'Rescuer', 40) }}
+          <div class="mt-3 mb-2">{{ ui.status_badge(assignment.status) }}</div>
+          {{ ui.kv('Assigned', assignment.assigned_at|localdt, 'bi-calendar-plus') }}
+          {% if assignment.responded_at %}{{ ui.kv('Answered', assignment.responded_at|localdt, 'bi-reply') }}{% endif %}
+          {% if assignment.deadline %}{{ ui.kv('Deadline', (assignment.deadline|localdt) ~ (' (overdue)' if assignment.is_overdue else ''), 'bi-alarm') }}{% endif %}
+          {% if assignment.completed_at %}{{ ui.kv('Completed', assignment.completed_at|localdt, 'bi-check2-circle') }}{% endif %}
+          {% if assignment.instructions %}<h3 class="rp-subhead mt-3">Instructions</h3><p class="pc-pre small mb-0">{{ assignment.instructions }}</p>{% endif %}
+          {% if assignment.response_note %}<h3 class="rp-subhead mt-3">Rescuer's note</h3><p class="pc-pre small mb-0">{{ assignment.response_note }}</p>{% endif %}
+          {% if assignment.completion_details %}<h3 class="rp-subhead mt-3">Outcome</h3><p class="pc-pre small mb-0">{{ assignment.completion_details }}</p>{% endif %}
+        {% endcall %}
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {% if report.has_location %}
+    {{ ui.map_scripts() }}
+    <script>
+      if (window.PawMap) {
+        window.PawMap.viewer({
+          id: 'report-map', zoom: 16,
+          markers: [{ lat: {{ report.latitude }}, lng: {{ report.longitude }}, level: {{ report.emergency_level|tojson }},
+                      title: {{ report.location_name|tojson }}, subtitle: {{ report.address|tojson }} }]
+        });
+      }
+    </script>
+  {% endif %}
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "About" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
+{% block content %}
+<section class="pb-page-head">
+  <div class="container-xxl">
+    <span class="pb-eyebrow"><i class="bi bi-info-circle"></i> About PawConnect</span>
+    <h1>One place for everyone who helps stray animals</h1>
+    <p>PawConnect is a coordination platform for stray animal rescue, veterinary care, adoption and volunteering.</p>
+  </div>
+</section>
+
+<div class="container-xxl pb-body">
+  <div class="row g-5">
+    <div class="col-lg-7 pb-prose">
+      <h2>Why PawConnect exists</h2>
+      <p>When someone sees an injured or abandoned animal, the help it needs is usually spread across many people: a rescuer who can reach the place, a veterinarian who can treat the animal, a shelter that has room, volunteers who can feed and transport, and finally a family that can adopt. Without a shared system these people rely on phone calls and messages, and details get lost.</p>
+      <p>PawConnect puts all of them on the same page. A report from the street turns into a tracked rescue case, the rescued animal gets a record with its medical history, and when the animal is healthy it can be listed for adoption.</p>
+
+      <h2>What you can do here</h2>
+      <ul>
+        <li><strong>Report</strong> an animal in need with photos, the location on a map and an urgency level, even without an account.</li>
+        <li><strong>Coordinate</strong> rescues: administrators assign verified rescuers, who accept or decline and keep the case updated.</li>
+        <li><strong>Keep records</strong> of every rescued animal, its examinations, treatments and vaccinations.</li>
+        <li><strong>Manage shelters</strong> with capacity limits, so no shelter is overloaded by accident.</li>
+        <li><strong>Adopt</strong> through a clear application process that shelters and administrators review.</li>
+        <li><strong>Volunteer</strong> for tasks such as feeding, transport and shelter care once an administrator approves you.</li>
+      </ul>
+
+      <h2>How we keep it trustworthy</h2>
+      <ul>
+        <li>Rescuers, veterinarians and shelters are verified by an administrator before they can use their tools.</li>
+        <li>Volunteers must be approved before they can accept tasks.</li>
+        <li>A reporter's phone number and e-mail address are visible only to administrators and to the rescuer assigned to the case.</li>
+        <li>Every status change of a report or an animal is recorded with who made it and when.</li>
+        <li>A shelter cannot receive more animals than its capacity unless an administrator overrides the limit and writes down the reason.</li>
+        <li>Notifications appear inside PawConnect. The platform does not send e-mails or text messages.</li>
+      </ul>
+    </div>
+
+    <div class="col-lg-5">
+      {% call ui.card('Who works together') %}
+        <ul class="pc-list">
+          {% for role in C.ALL_ROLES %}
+            <li class="pc-list-item">
+              <div class="d-flex align-items-center gap-3">
+                <span class="pc-icon-circle"><i class="bi {{ C.ROLE_ICONS[role] }}"></i></span>
+                <div>
+                  <strong>{{ C.ROLE_LABELS[role] }}</strong>
+                  <small>{{ C.ROLE_DESCRIPTIONS.get(role, 'Verifies accounts, assigns rescues and keeps the platform running.') }}</small>
+                </div>
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% endcall %}
+      <div class="pb-cta mt-4" style="padding:28px">
+        <div>
+          <h2 style="font-size:1.3rem">Ready to help?</h2>
+          <p>Create an account or report an animal right now.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-light" href="{{ url_for('reports.new') }}">Report an animal</a>
+          {% if not current_user.is_authenticated %}<a class="btn btn-outline-light" href="{{ url_for('auth.register') }}">Join us</a>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

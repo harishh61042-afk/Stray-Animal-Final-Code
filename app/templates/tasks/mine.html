@@ -1,0 +1,42 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'tasks/_macros.html' as tm %}
+{% set page_title = "My tasks" %}
+{% set page_subtitle = "Tasks you were asked to do or have accepted" %}
+{% set crumbs = [("Volunteer", None), ("My tasks", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('tasks.history') }}"><i class="bi bi-clock-history"></i> History</a>
+  <a class="btn btn-primary" href="{{ url_for('tasks.available') }}"><i class="bi bi-search-heart"></i> Find a task</a>
+{% endblock %}
+
+{% block content %}
+<div class="vstack gap-4">
+  <div class="an-kpis mb-0">
+    {{ ui.kpi('Waiting for you', summary.assigned, 'bi-envelope-open', 'amber', None, None, 'up', 'Accept or decline') }}
+    {{ ui.kpi('In hand', summary.accepted + summary.in_progress, 'bi-list-check', 'blue', None, None, 'up', 'Accepted or in progress') }}
+    {{ ui.kpi('Completed', summary.completed, 'bi-check2-circle', 'green', None, None, 'up', 'Tasks you finished') }}
+    {{ ui.kpi('Hours', summary.hours, 'bi-clock-history', 'teal', None, None, 'up', 'Recorded so far') }}
+  </div>
+
+  {% if pagination.items %}
+    <div class="vt-grid">
+      {% for a in pagination.items %}
+        {% call tm.task_card(a.task, a) %}
+          {% if a.status == C.TA_ASSIGNED %}
+            {{ ui.post_button(url_for('tasks.accept', task_id=a.task_id), 'Accept', 'btn btn-sm btn-primary', 'bi-check2') }}
+          {% endif %}
+        {% endcall %}
+      {% endfor %}
+    </div>
+    <div>{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    <div class="pc-card"><div class="pc-card-body">
+      {{ ui.empty_state('bi-list-check', 'You have no task in hand', 'Accept an open task, or wait until a coordinator assigns one to you.', url_for('tasks.available'), 'Find a task') }}
+    </div></div>
+  {% endif %}
+</div>
+{% endblock %}

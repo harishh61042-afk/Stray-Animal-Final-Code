@@ -1,0 +1,18 @@
+{# Notification bell + dropdown. The list is loaded by notifications.js when the menu opens. #}
+<div class="dropdown pc-bell" data-notif-root>
+  <button class="pc-icon-btn position-relative" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+          aria-expanded="false" aria-label="Notifications">
+    <i class="bi bi-bell"></i>
+    <span class="pc-dot-badge" data-unread-badge{% if not unread_count %} hidden{% endif %}>{{ '99+' if unread_count > 99 else unread_count }}</span>
+  </button>
+  <div class="dropdown-menu dropdown-menu-end pc-notif-menu">
+    <div class="pc-notif-head">
+      <strong>Notifications</strong>
+      <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" data-notif-read-all>Mark all as read</button>
+    </div>
+    <div class="pc-notif-list" data-notif-list>
+      <div class="pc-notif-empty"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Loading...</div>
+    </div>
+    <a class="pc-notif-foot" href="{{ url_for('notifications.index') }}">View all notifications</a>
+  </div>
+</div>

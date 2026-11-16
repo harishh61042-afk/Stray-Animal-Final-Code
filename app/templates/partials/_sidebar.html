@@ -1,0 +1,47 @@
+{# Left sidebar of the signed-in shell (links come from app/navigation.py). #}
+<aside class="pc-sidebar" id="pcSidebar" aria-label="Main navigation">
+  <div class="pc-sidebar-head">
+    <a class="pc-brand" href="{{ url_for('dashboard.index') }}">
+      <img src="{{ url_for('static', filename='images/logo-mark.svg') }}" width="36" height="36" alt="">
+      <span>Paw<b>Connect</b></span>
+    </a>
+    <button type="button" class="pc-icon-btn d-lg-none" id="pcSidebarClose" aria-label="Close menu"><i class="bi bi-x-lg"></i></button>
+  </div>
+
+  <nav class="pc-nav">
+    {% for title, items in nav_sections %}
+      <div class="pc-nav-caption">{{ title }}</div>
+      <ul class="pc-nav-list">
+        {% for item in items %}
+          {% set active = nav_active(item) %}
+          <li>
+            <a class="pc-nav-link{{ ' active' if active }}" href="{{ url_for(item.endpoint) }}"{% if active %} aria-current="page"{% endif %}>
+              <i class="bi {{ item.icon }}"></i><span>{{ item.label }}</span>
+              {% if item.badge == 'notifications' %}
+                <span class="pc-nav-badge" data-unread-badge{% if not unread_count %} hidden{% endif %}>{{ '99+' if unread_count > 99 else unread_count }}</span>
+              {% endif %}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endfor %}
+    <div class="pc-nav-caption">Public site</div>
+    <ul class="pc-nav-list">
+      <li><a class="pc-nav-link" href="{{ url_for('public.home') }}"><i class="bi bi-house"></i><span>Back to website</span></a></li>
+    </ul>
+  </nav>
+
+  <div class="pc-sidebar-foot">
+    <div class="pc-usercard">
+      <span class="pc-avatar" style="--size:40px;--bg:{{ current_user.full_name|avatar_color }}">{{ current_user.full_name|initials }}</span>
+      <div class="pc-usercard-text">
+        <strong>{{ current_user.full_name }}</strong>
+        <small>{{ current_user.role_label }}</small>
+      </div>
+    </div>
+    <form method="post" action="{{ url_for('auth.logout') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="pc-nav-link w-100 border-0 bg-transparent" type="submit"><i class="bi bi-box-arrow-right"></i><span>Sign out</span></button>
+    </form>
+  </div>
+</aside>

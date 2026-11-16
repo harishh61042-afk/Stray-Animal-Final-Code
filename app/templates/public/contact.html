@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Contact" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
+{% block content %}
+<section class="pb-page-head">
+  <div class="container-xxl">
+    <span class="pb-eyebrow"><i class="bi bi-envelope-heart"></i> Contact</span>
+    <h1>We would love to hear from you</h1>
+    <p>Questions, ideas or feedback? Send us a message. It goes straight to the PawConnect administrators.</p>
+  </div>
+</section>
+
+<div class="container-xxl pb-body">
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="vstack gap-3">
+        {% if contact_email %}
+        <div class="pb-contact-tile"><span class="pc-icon-circle"><i class="bi bi-envelope"></i></span>
+          <div><small>E-mail</small><strong><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></strong></div></div>
+        {% endif %}
+        {% if contact_phone %}
+        <div class="pb-contact-tile"><span class="pc-icon-circle"><i class="bi bi-telephone"></i></span>
+          <div><small>Phone</small><strong><a href="tel:{{ contact_phone|replace(' ', '') }}">{{ contact_phone }}</a></strong></div></div>
+        {% endif %}
+        {% if contact_address %}
+        <div class="pb-contact-tile"><span class="pc-icon-circle"><i class="bi bi-geo-alt"></i></span>
+          <div><small>Address</small><strong>{{ contact_address }}</strong></div></div>
+        {% endif %}
+        <div class="pb-adopt-card">
+          <h2>Is an animal in trouble?</h2>
+          <p>Please use the report form instead, so the rescue team gets the place, a photo and the urgency in one go.</p>
+          <a class="btn btn-primary" href="{{ url_for('reports.new') }}"><i class="bi bi-megaphone"></i> Report an animal</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      {% call ui.card('Send a message') %}
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+          {{ f.form_errors(form) }}
+          <div class="row g-3">
+            {{ f.field(form.name, col='col-md-6') }}
+            {{ f.field(form.email, col='col-md-6', placeholder='you@example.com') }}
+            {{ f.field(form.subject, col='col-12') }}
+            {{ f.field(form.message, col='col-12', rows=6, placeholder='How can we help?') }}
+            <div class="pb-hp" aria-hidden="true">
+              <label for="{{ form.website.id }}">Leave this field empty</label>
+              {{ form.website(tabindex='-1', autocomplete='off') }}
+            </div>
+            <div class="col-12 d-flex justify-content-end">{{ f.submit('Send message', icon='bi-send', loading='Sending...') }}</div>
+          </div>
+        </form>
+      {% endcall %}
+    </div>
+  </div>
+</div>
+{% endblock %}

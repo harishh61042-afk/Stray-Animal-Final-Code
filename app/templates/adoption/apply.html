@@ -1,0 +1,93 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "Adopt " ~ animal.display_name %}
+{% set page_subtitle = "Tell " ~ (animal.shelter.shelter_name if animal.shelter else "the shelter") ~ " about yourself and your home" %}
+{% set crumbs = [("Adoption", url_for('public.animals')), (animal.display_name, url_for('public.animal_detail', animal_id=animal.id)), ("Apply", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/adoption.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div>
+    {% call ui.card('Adoption application', 'Fields marked * are required. Only the shelter and PawConnect administrators can read your answers.') %}
+      <form method="post" novalidate class="an-form">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+
+        <section class="pc-form-section">
+          <h3><i class="bi bi-person"></i> About you</h3>
+          <div class="row g-3">
+            {{ f.field(form.applicant_name, col='col-md-6', autofocus=True) }}
+            {{ f.field(form.applicant_email, col='col-md-6') }}
+            {{ f.field(form.applicant_phone, col='col-md-6', placeholder='e.g. 98765 43210') }}
+            {{ f.field(form.occupation, col='col-md-6') }}
+          </div>
+        </section>
+
+        <section class="pc-form-section">
+          <h3><i class="bi bi-house-door"></i> Where {{ animal.display_name }} would live</h3>
+          <div class="row g-3">
+            {{ f.field(form.address, col='col-12', rows=2) }}
+            {{ f.field(form.city, col='col-md-5') }}
+            {{ f.field(form.state, col='col-md-4') }}
+            {{ f.field(form.pincode, col='col-md-3') }}
+            {{ f.field(form.housing_type, col='col-md-6') }}
+            {{ f.field(form.household_members, col='col-md-6') }}
+          </div>
+        </section>
+
+        <section class="pc-form-section">
+          <h3><i class="bi bi-heart"></i> Pets and experience</h3>
+          <div class="row g-3">
+            {{ f.field(form.has_other_pets, col='col-12') }}
+            <div class="col-12" data-visible-when-field="has_other_pets" data-visible-when-value="y">
+              {{ f.field(form.other_pets_details, rows=3, help='Which animals, how many, and how they get along with other animals.') }}
+            </div>
+            {{ f.field(form.previous_experience, col='col-12', rows=3, help='For example: pets you had before, rescue or volunteering work.') }}
+          </div>
+        </section>
+
+        <section class="pc-form-section">
+          <h3><i class="bi bi-chat-heart"></i> Your reason</h3>
+          <div class="row g-3">
+            {{ f.field(form.adoption_reason, col='col-12', rows=5, help='At least 20 characters. Tell the shelter why you would like to adopt ' ~ animal.display_name ~ ' and how you will care for the animal.') }}
+            {{ f.field(form.agreed_to_terms, col='col-12') }}
+          </div>
+        </section>
+
+        <div class="d-flex flex-wrap gap-2 pt-2">
+          {{ f.submit('Send my application', 'bi-send', 'btn btn-primary btn-lg', 'Sending...') }}
+          <a class="btn btn-link" href="{{ url_for('public.animal_detail', animal_id=animal.id) }}">Cancel</a>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="The animal and what happens next">
+    {% call ui.card('You are applying for') %}
+      <div class="ad-animal">
+        <div class="ad-animal-photo">{{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, fallback=placeholder_url(animal.animal_type)) }}</div>
+        <div>
+          <div class="an-code">{{ animal.animal_code }}</div>
+          <h3><a href="{{ url_for('public.animal_detail', animal_id=animal.id) }}">{{ animal.display_name }}</a></h3>
+          <div class="an-mini">{{ animal.animal_type }}{% if animal.breed %} &middot; {{ animal.breed }}{% endif %} &middot; {{ animal.age_display }} &middot; {{ animal.gender }}</div>
+        </div>
+        <div class="an-badges m-0">{{ ui.status_badge(animal.medical_status) }}{{ ui.status_badge(animal.vaccination_status) }}</div>
+        {% if animal.shelter %}<div class="an-contact"><div><i class="bi bi-house-heart"></i><a href="{{ url_for('shelters.detail', shelter_id=animal.shelter.id) }}">{{ animal.shelter.shelter_name }}</a>{% if animal.shelter.city %}, {{ animal.shelter.city }}{% endif %}</div></div>{% endif %}
+      </div>
+    {% endcall %}
+
+    {% call ui.card('What happens next') %}
+      <ol class="ad-next">
+        <li><i class="bi bi-send-check"></i><div><strong>The shelter gets your form</strong>You can follow the status under "My applications".</div></li>
+        <li><i class="bi bi-search"></i><div><strong>They review it</strong>The shelter may contact you by phone or e-mail.</div></li>
+        <li><i class="bi bi-patch-check"></i><div><strong>Decision</strong>You get a notification as soon as the application is approved or rejected.</div></li>
+        <li><i class="bi bi-balloon-heart"></i><div><strong>Welcome home</strong>The shelter completes the adoption when {{ animal.display_name }} goes home with you.</div></li>
+      </ol>
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}

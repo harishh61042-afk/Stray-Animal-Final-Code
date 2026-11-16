@@ -1,0 +1,85 @@
+{#
+  Form macros for Flask-WTF forms.   {% import 'macros/forms.html' as f %}
+
+  <form method="post" enctype="multipart/form-data">      (enctype only when the form has file inputs)
+    {{ form.hidden_tag() }}                               (CSRF token)
+    {{ f.form_errors(form) }}
+    <div class="row g-3">
+      {{ f.field(form.name, col='col-md-6', placeholder='e.g. Bruno') }}
+      {{ f.field(form.notes, col='col-12', rows=3, help='Optional') }}
+    </div>
+    {{ f.submit('Save changes') }}
+  </form>
+#}
+
+{% macro form_errors(form) %}
+  {% if form.form_errors %}
+    <div class="alert alert-danger pc-alert" role="alert"><i class="bi bi-exclamation-octagon-fill"></i>
+      <div class="pc-alert-text">{% for e in form.form_errors %}{{ e }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div></div>
+  {% endif %}
+{%- endmacro %}
+
+{#
+  Renders label + control + help + validation errors for any WTForms field.
+    col         : optional grid class ("col-md-6"); wraps the field in <div class="col-md-6">
+    rows        : textarea rows
+    accept      : file input accept attribute (e.g. "image/*")
+    prefix_icon : bootstrap icon class shown inside the input (text-like fields only)
+#}
+{% macro field(f, label=None, help=None, placeholder=None, rows=None, accept=None, col=None, prefix_icon=None, class_='', autofocus=False) %}
+  {% set kind = f.type %}
+  {% set invalid = ' is-invalid' if f.errors else '' %}
+  {% set text = label if label is not none else f.label.text %}
+  {% if col %}<div class="{{ col }}">{% endif %}
+  {% if kind == 'HiddenField' %}
+    {{ f() }}
+  {% elif kind == 'BooleanField' %}
+    <div class="form-check pc-check {{ class_ }}">
+      {{ f(class='form-check-input' ~ invalid) }}
+      <label class="form-check-label" for="{{ f.id }}">{{ text }}{% if f.flags.required %} <span class="text-danger">*</span>{% endif %}</label>
+      {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+      {% for e in f.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+    </div>
+  {% elif kind == 'RadioField' %}
+    <div class="pc-field {{ class_ }}">
+      <div class="form-label">{{ text }}{% if f.flags.required %} <span class="text-danger">*</span>{% endif %}</div>
+      <div class="pc-radio-group">
+        {% for sub in f %}
+          <div class="form-check form-check-inline">{{ sub(class='form-check-input') }}<label class="form-check-label" for="{{ sub.id }}">{{ sub.label.text }}</label></div>
+        {% endfor %}
+      </div>
+      {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+      {% for e in f.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+    </div>
+  {% else %}
+    {% set kw = {'class': ('form-select' if kind in ('SelectField', 'SelectMultipleField') else 'form-control') ~ invalid ~ (' ' ~ class_ if class_ else '')} %}
+    {% if placeholder and kind not in ('SelectField', 'SelectMultipleField', 'FileField', 'MultipleFileField') %}{% set _ = kw.update({'placeholder': placeholder}) %}{% endif %}
+    {% if rows and kind == 'TextAreaField' %}{% set _ = kw.update({'rows': rows}) %}{% endif %}
+    {% if accept and kind in ('FileField', 'MultipleFileField') %}{% set _ = kw.update({'accept': accept}) %}{% endif %}
+    {% if kind in ('FileField', 'MultipleFileField') %}{% set _ = kw.update({'data-preview': 'true'}) %}{% endif %}
+    {% if autofocus %}{% set _ = kw.update({'autofocus': true}) %}{% endif %}
+    <div class="pc-field {{ 'mb-0' if col else '' }}">
+      <label class="form-label" for="{{ f.id }}">{{ text }}{% if f.flags.required %} <span class="text-danger">*</span>{% endif %}</label>
+      {% if prefix_icon and kind not in ('SelectField', 'TextAreaField', 'FileField', 'MultipleFileField') %}
+        <div class="pc-input-icon"><i class="bi {{ prefix_icon }}"></i>{{ f(**kw) }}</div>
+      {% else %}
+        {{ f(**kw) }}
+      {% endif %}
+      {% if help %}<div class="form-text">{{ help }}</div>{% endif %}
+      {% for e in f.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+    </div>
+  {% endif %}
+  {% if col %}</div>{% endif %}
+{%- endmacro %}
+
+{# Submit button that shows a spinner and disables itself while the form is being sent. #}
+{% macro submit(label='Save', icon='bi-check2', class_='btn btn-primary', loading='Saving...') %}
+  <button type="submit" class="{{ class_ }}" data-loading data-loading-text="{{ loading }}">{% if icon %}<i class="bi {{ icon }}"></i> {% endif %}{{ label }}</button>
+{%- endmacro %}
+
+{# Latitude / longitude inputs + map picker.  Needs map_head()/map_scripts() from macros/ui.html and
+   static/js/maps.js; initialise with PawMap.picker({...}) - the options are described at the top of maps.js. #}
+{% macro coordinate_fields(lat, lng, col='col-md-6') %}
+  {{ field(lat, col=col, placeholder='e.g. 17.385044') }}
+  {{ field(lng, col=col, placeholder='e.g. 78.486671') }}
+{%- endmacro %}

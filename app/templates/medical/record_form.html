@@ -1,0 +1,68 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set editing = record is not none %}
+{% set page_title = "Edit examination" if editing else "Add an examination" %}
+{% set page_subtitle = animal.display_name ~ ' · ' ~ animal.animal_code %}
+{% set crumbs = [("Medical records", url_for('medical.index')), (animal.display_name, url_for('medical.animal_profile', animal_id=animal.id)), ("Edit examination" if editing else "New examination", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}<a class="btn btn-outline-primary" href="{{ url_for('medical.record_detail', record_id=record.id) if editing else url_for('medical.animal_profile', animal_id=animal.id) }}"><i class="bi bi-arrow-left"></i> Cancel</a>{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div>
+    {% call ui.card('Examination', 'Fields marked * are required.') %}
+      <form method="post" enctype="multipart/form-data" novalidate class="an-form">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+        <section class="pc-form-section">
+          <h3><i class="bi bi-clipboard2-pulse"></i> The visit</h3>
+          <div class="row g-3">
+            {{ f.field(form.examination_date, col='col-md-4') }}
+            {{ f.field(form.weight_kg, col='col-md-4', placeholder='e.g. 12.5') }}
+            {% if form.veterinarian_id %}{{ f.field(form.veterinarian_id, col='col-md-4') }}{% endif %}
+            {{ f.field(form.symptoms, col='col-12', rows=3, placeholder='What was observed: limping, loss of appetite, wounds...') }}
+            {{ f.field(form.diagnosis, col='col-12', rows=3, placeholder='The veterinarian\'s finding', autofocus=not editing) }}
+          </div>
+        </section>
+        <section class="pc-form-section">
+          <h3><i class="bi bi-bandaid"></i> Treatment</h3>
+          <div class="row g-3">
+            {{ f.field(form.treatment, col='col-12', rows=3, placeholder='Procedures and care given') }}
+            {{ f.field(form.medicines, col='col-12', rows=3, placeholder='Medicine, dose and how long') }}
+          </div>
+        </section>
+        <section class="pc-form-section">
+          <h3><i class="bi bi-heart-pulse"></i> Outcome</h3>
+          <div class="row g-3">
+            {{ f.field(form.medical_status, col='col-md-6', help='This becomes the animal\'s current medical status. Critical animals cannot be listed for adoption.') }}
+            {{ f.field(form.follow_up_date, col='col-md-6', help='You will be reminded when it is due.') }}
+            {{ f.field(form.notes, col='col-12', rows=2, help='Only visible to staff who can open the medical file.') }}
+          </div>
+        </section>
+        <section class="pc-form-section">
+          <h3><i class="bi bi-paperclip"></i> Report or X-ray</h3>
+          {% if editing and record.document_filename %}
+            <p class="small text-secondary">Current file: <a href="{{ url_for('files.medical_document', record_id=record.id) }}">{{ record.document_original_name or 'Open the attached report' }}</a>. Choosing a new file replaces it.</p>
+          {% endif %}
+          {{ f.field(form.document, accept='application/pdf,image/png,image/jpeg', help='PDF, PNG or JPG, up to 8 MB. Optional.') }}
+        </section>
+        <div class="d-flex flex-wrap gap-2 pt-2">
+          {{ f.submit('Save changes' if editing else 'Save examination', 'bi-check2-circle', 'btn btn-primary btn-lg', 'Saving...') }}
+          <a class="btn btn-link" href="{{ url_for('medical.record_detail', record_id=record.id) if editing else url_for('medical.animal_profile', animal_id=animal.id) }}">Cancel</a>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+  <aside class="an-side" aria-label="About this animal">
+    {% call ui.card(animal.display_name) %}
+      <div class="an-hero-photo mb-3">{{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, fallback=placeholder_url(animal.animal_type)) }}</div>
+      <div class="an-badges mt-0 mb-2">{{ ui.status_badge(animal.status) }}{{ ui.status_badge(animal.medical_status) }}</div>
+      {{ ui.kv('Type', animal.animal_type ~ (' · ' ~ animal.breed if animal.breed else '')) }}
+      {{ ui.kv('Age', animal.age_display) }}
+      {{ ui.kv('Vaccination', animal.vaccination_status) }}
+      {% if animal.health_condition %}<div class="an-subhead mt-3">Condition when found</div><p class="an-text small">{{ animal.health_condition|truncate(240) }}</p>{% endif %}
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}

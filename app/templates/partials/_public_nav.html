@@ -1,0 +1,70 @@
+{# Public header: logo, centred pill navigation (like the InsightIQ reference), actions. #}
+{% set public_links = [
+  ('Home', 'public.home', ['public.home']),
+  ('Report', 'reports.new', ['reports.']),
+  ('Adopt', 'public.animals', ['public.animals', 'public.animal_detail', 'adoption.apply']),
+  ('Volunteer', 'auth.register_volunteer', ['auth.register_volunteer']),
+  ('How it works', 'public.how_it_works', ['public.how_it_works']),
+  ('About', 'public.about', ['public.about']),
+  ('Contact', 'public.contact', ['public.contact']),
+] %}
+<header class="pc-public-header">
+  <div class="container-xxl">
+    <div class="pc-public-bar">
+      <a class="pc-brand" href="{{ url_for('public.home') }}" aria-label="{{ app_name }} home">
+        <img src="{{ url_for('static', filename='images/logo-mark.svg') }}" width="36" height="36" alt="">
+        <span>Paw<b>Connect</b></span>
+      </a>
+
+      <nav class="pc-pill-nav d-none d-xl-flex" aria-label="Main navigation">
+        {% for label, endpoint, match in public_links %}
+          <a class="pc-pill{{ ' active' if endpoint_is(match) }}" href="{{ url_for(endpoint) }}"{% if endpoint_is(match) %} aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </nav>
+
+      <div class="pc-public-actions">
+        <button type="button" class="pc-icon-btn" data-theme-toggle aria-label="Toggle dark mode"><i class="bi bi-moon-stars"></i></button>
+        {% if current_user.is_authenticated %}
+          {% include 'partials/_notif_bell.html' %}
+          <div class="dropdown">
+            <button class="pc-user-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+              <span class="pc-avatar" style="--size:34px;--bg:{{ current_user.full_name|avatar_color }}">{{ current_user.full_name|initials }}</span>
+              <span class="d-none d-md-inline pc-user-name">{{ current_user.first_name }}</span>
+              <i class="bi bi-chevron-down d-none d-md-inline small"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end pc-menu">
+              <li class="pc-menu-head"><strong>{{ current_user.full_name }}</strong><small>{{ current_user.role_label }}</small></li>
+              <li><a class="dropdown-item" href="{{ url_for('dashboard.index') }}"><i class="bi bi-grid-1x2"></i> Dashboard</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('account.profile') }}"><i class="bi bi-person-circle"></i> My profile</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('notifications.index') }}"><i class="bi bi-bell"></i> Notifications</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <form method="post" action="{{ url_for('auth.logout') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="dropdown-item" type="submit"><i class="bi bi-box-arrow-right"></i> Sign out</button>
+                </form>
+              </li>
+            </ul>
+          </div>
+        {% else %}
+          <a class="btn btn-ghost d-none d-sm-inline-flex" href="{{ url_for('auth.login') }}">Log in</a>
+          <a class="btn btn-primary" href="{{ url_for('auth.register') }}"><i class="bi bi-person-plus"></i><span class="d-none d-sm-inline"> Get started</span></a>
+        {% endif %}
+        <button class="pc-icon-btn d-xl-none" type="button" data-bs-toggle="collapse" data-bs-target="#pcMobileNav"
+                aria-controls="pcMobileNav" aria-expanded="false" aria-label="Open menu"><i class="bi bi-list"></i></button>
+      </div>
+    </div>
+
+    <div class="collapse d-xl-none" id="pcMobileNav">
+      <nav class="pc-mobile-nav" aria-label="Mobile navigation">
+        {% for label, endpoint, match in public_links %}
+          <a class="pc-mobile-link{{ ' active' if endpoint_is(match) }}" href="{{ url_for(endpoint) }}">{{ label }}</a>
+        {% endfor %}
+        <a class="pc-mobile-link{{ ' active' if endpoint_is(['shelters.directory', 'shelters.detail']) }}" href="{{ url_for('shelters.directory') }}">Shelters</a>
+        {% if not current_user.is_authenticated %}
+          <a class="pc-mobile-link" href="{{ url_for('auth.login') }}">Log in</a>
+        {% endif %}
+      </nav>
+    </div>
+  </div>
+</header>

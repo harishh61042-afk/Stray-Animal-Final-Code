@@ -1,0 +1,63 @@
+/* Adoption pages (prefix ad-). Uses the colour tokens defined in app.css; layout helpers (an-*) come from animals.css. */
+
+/* ---------- application cards ---------- */
+.ad-app { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: .9rem 1.2rem; align-items: center; padding: 1rem 1.15rem; border: 1px solid var(--pc-border); border-radius: var(--pc-radius-md); background: var(--pc-surface); }
+.ad-app + .ad-app { margin-top: .9rem; }
+.ad-app-photo { width: 84px; height: 84px; border-radius: 16px; object-fit: cover; background: var(--pc-surface-3); display: block; }
+.ad-app h3 { font-size: 1.05rem; font-weight: 700; margin: 0 0 .2rem; overflow-wrap: anywhere; }
+.ad-app h3 a { color: inherit; text-decoration: none; }
+.ad-app h3 a:hover { color: var(--pc-primary); }
+.ad-app-meta { display: flex; flex-wrap: wrap; gap: .2rem 1rem; color: var(--pc-muted); font-size: .84rem; }
+.ad-app-meta i { color: var(--pc-primary); margin-right: .3rem; }
+.ad-app-side { display: grid; gap: .55rem; justify-items: end; }
+@media (max-width: 767.98px) {
+  .ad-app { grid-template-columns: 64px minmax(0, 1fr); }
+  .ad-app-photo { width: 64px; height: 64px; border-radius: 12px; }
+  .ad-app-side { grid-column: 1 / -1; grid-auto-flow: column; justify-content: space-between; justify-items: start; align-items: center; }
+}
+
+/* ---------- progress of one application ---------- */
+.ad-steps { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 0; counter-reset: ad-step; }
+.ad-steps li { position: relative; text-align: center; padding-top: 2.5rem; font-size: .8rem; font-weight: 600; color: var(--pc-muted); }
+.ad-steps li::before { content: counter(ad-step); counter-increment: ad-step; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 1.95rem; height: 1.95rem; border-radius: 50%; display: grid; place-items: center; background: var(--pc-surface-3); color: var(--pc-muted); font-weight: 700; z-index: 1; }
+.ad-steps li::after { content: ""; position: absolute; top: .93rem; left: calc(-50% + 1rem); width: calc(100% - 2rem); height: 2px; background: var(--pc-border); }
+.ad-steps li:first-child::after { display: none; }
+.ad-steps li.done, .ad-steps li.current { color: var(--pc-text); }
+.ad-steps li.done::before { content: "\2713"; background: var(--pc-primary); color: #fff; }
+.ad-steps li.current::before { background: var(--pc-primary-soft); color: var(--pc-primary-strong); box-shadow: 0 0 0 2px var(--pc-primary); }
+.ad-steps li.done::after, .ad-steps li.current::after { background: var(--pc-primary); }
+
+/* ---------- answers and messages ---------- */
+.ad-dl { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: .65rem 1.1rem; margin: 0; }
+.ad-dl dt { color: var(--pc-muted); font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding-top: .15rem; }
+.ad-dl dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 575.98px) { .ad-dl { grid-template-columns: minmax(0, 1fr); gap: .1rem; } .ad-dl dd { margin-bottom: .65rem; } }
+.ad-callout { border-left: 4px solid var(--c, var(--pc-primary)); background: var(--pc-surface-2); border-radius: var(--pc-radius-sm); padding: .85rem 1rem; }
+.ad-callout small { display: block; color: var(--pc-muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .25rem; }
+.ad-callout p { margin: 0; overflow-wrap: anywhere; }
+.ad-callout.is-danger { --c: var(--pc-coral); }
+.ad-callout.is-warning { --c: var(--pc-amber); }
+.ad-callout.is-info { --c: var(--pc-blue); }
+
+/* ---------- the animal on the application pages ---------- */
+.ad-animal { display: grid; gap: .9rem; }
+.ad-animal-photo { aspect-ratio: 4 / 3; border-radius: var(--pc-radius-md); overflow: hidden; background: var(--pc-surface-3); }
+.ad-animal-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ad-animal h3 { font-size: 1.2rem; font-weight: 800; margin: 0; }
+.ad-animal h3 a { color: inherit; text-decoration: none; }
+.ad-animal h3 a:hover { color: var(--pc-primary); }
+.ad-next { list-style: none; margin: 0; padding: 0; display: grid; gap: .85rem; }
+.ad-next li { display: flex; gap: .75rem; align-items: flex-start; font-size: .86rem; color: var(--pc-muted); }
+.ad-next li > i { flex: none; width: 2rem; height: 2rem; border-radius: 50%; display: grid; place-items: center; background: var(--pc-primary-soft); color: var(--pc-primary-strong); }
+.ad-next strong { display: block; color: var(--pc-text); font-size: .9rem; }
+
+/* ---------- other applications and adopted pets ---------- */
+.ad-other { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .4rem .9rem; padding: .65rem 0; border-top: 1px solid var(--pc-border); font-size: .88rem; }
+.ad-other:first-child { border-top: 0; padding-top: 0; }
+.ad-adopted { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 1rem 1.3rem; align-items: center; padding: 1rem 0; border-top: 1px solid var(--pc-border); }
+.ad-adopted:first-child { border-top: 0; padding-top: 0; }
+.ad-adopted img { width: 96px; height: 96px; border-radius: 18px; object-fit: cover; background: var(--pc-surface-3); display: block; }
+.ad-adopted h3 { font-size: 1.1rem; font-weight: 700; margin: 0 0 .2rem; }
+.ad-adopted h3 a { color: inherit; text-decoration: none; }
+.ad-adopted h3 a:hover { color: var(--pc-primary); }
+@media (max-width: 575.98px) { .ad-adopted { grid-template-columns: 72px minmax(0, 1fr); } .ad-adopted img { width: 72px; height: 72px; border-radius: 14px; } }

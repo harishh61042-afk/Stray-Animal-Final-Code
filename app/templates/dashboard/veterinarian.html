@@ -1,0 +1,70 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'dashboard/_lists.html' as lists %}
+{% set page_title = "Veterinarian dashboard" %}
+{% set page_subtitle = "Animals in your care, vaccinations and follow-ups" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('medical.vaccinations') }}"><i class="bi bi-shield-plus"></i> Vaccinations</a>
+  <a class="btn btn-primary" href="{{ url_for('medical.index') }}"><i class="bi bi-clipboard2-pulse"></i> Medical records</a>
+{% endblock %}
+
+{% block content %}
+{% set hour = utcnow()|localdt('%H')|int %}
+{% set greeting = 'Good morning' if hour < 12 else ('Good afternoon' if hour < 17 else 'Good evening') %}
+{% set due_total = d.due_count + d.follow_up_count %}
+<div class="db-wrap">
+  <div class="db-kpis">
+    {{ ui.kpi('Animals in your care', d.assigned, 'bi-heart-pulse', 'teal', None, None, 'up', 'Assigned to you', url_for('medical.index')) }}
+    {{ ui.kpi('Critical condition', d.critical, 'bi-exclamation-triangle', 'coral', None, None, 'up', 'Need close attention' if d.critical else 'None critical', url_for('medical.index')) }}
+    {{ ui.kpi('Vaccinations due', d.due_count, 'bi-shield-plus', 'amber', None, None, 'up', (d.overdue_count ~ ' overdue') if d.overdue_count else 'Next 14 days', url_for('medical.vaccinations')) }}
+    {{ ui.kpi('Animals without a vet', d.unassigned, 'bi-question-circle', 'blue', None, None, 'up', 'You can take these on', url_for('medical.unassigned')) }}
+  </div>
+
+  <div class="db-row db-row-hero">
+    {% call ui.hero(greeting ~ ', ' ~ current_user.full_name.split(' ')[0],
+                    (due_total ~ ' thing' ~ ('' if due_total == 1 else 's') ~ ' due soon') if due_total else 'Nothing is due right now',
+                    (d.due_count ~ ' vaccination' ~ ('' if d.due_count == 1 else 's') ~ ' and ' ~ d.follow_up_count ~ ' follow-up' ~ ('' if d.follow_up_count == 1 else 's') ~ ' need your attention.') if due_total else 'Vaccinations and follow-ups for your animals will show up here when they are due.',
+                    'bi-heart-pulse') %}
+      <a class="btn btn-light" href="{{ url_for('medical.index') }}">Medical records <i class="bi bi-arrow-up-right"></i></a>
+      <a class="btn btn-glass" href="{{ url_for('medical.unassigned') }}">Animals without a vet</a>
+    {% endcall %}
+
+    {% call ui.card('Examinations', 'Medical records you wrote, last 12 months') %}
+      <div class="d-flex flex-wrap align-items-baseline gap-2 mb-2">
+        <div class="db-bignum">{{ d.records_total }} <small>in 12 months</small></div>
+        <span class="db-sub">{{ d.records_this_month }} this month</span>
+      </div>
+      {{ ui.chart('chart-exams', d.chart, 200) }}
+    {% endcall %}
+  </div>
+
+  <div class="db-row db-row-3">
+    {% call ui.card('Needs attention', 'Critical or under treatment') %}
+      {{ lists.animal_rows(d.needs_attention, 'medical.animal_profile', 'bi-emoji-smile', 'All stable', 'None of your animals is critical or under treatment.') }}
+    {% endcall %}
+    {% call ui.card('Vaccinations due', 'Overdue or due in 14 days') %}
+      {{ lists.vaccination_rows(d.due, d.today, 'bi-shield-check', 'Nothing due', 'No vaccination is due in the next two weeks.') }}
+    {% endcall %}
+    {% call ui.card('Follow-ups', 'Due within a week or overdue') %}
+      {{ lists.follow_up_rows(d.follow_ups, d.today, 'bi-calendar-check', 'No follow-ups due', 'Follow-up dates you set on medical records appear here.') }}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block right_rail %}
+  {% include 'dashboard/_notes.html' %}
+  {% call ui.card('Quick actions') %}
+    <div class="db-quick">
+      <a href="{{ url_for('medical.index') }}"><i class="bi bi-clipboard2-pulse"></i> Medical records</a>
+      <a href="{{ url_for('medical.vaccinations') }}"><i class="bi bi-shield-plus"></i> Vaccinations</a>
+      <a href="{{ url_for('medical.unassigned') }}"><i class="bi bi-question-circle"></i> Without a vet</a>
+      <a href="{{ url_for('animals.index') }}"><i class="bi bi-heart"></i> Animals</a>
+      <a href="{{ url_for('account.profile') }}"><i class="bi bi-person-circle"></i> My profile</a>
+      <a href="{{ url_for('notifications.index') }}"><i class="bi bi-bell"></i> Notifications</a>
+    </div>
+  {% endcall %}
+{% endblock %}
+
+{% block scripts %}{{ ui.chart_scripts() }}{% endblock %}

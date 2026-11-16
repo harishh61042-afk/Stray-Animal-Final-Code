@@ -1,0 +1,31 @@
+{% import 'macros/ui.html' as ui %}
+
+{# Horizontal share bars. rows = [{label, value, pct}] #}
+{% macro bars(rows, tone='green', empty='No data in this period.') %}
+  {% if rows %}
+    <ul class="db-hbars">
+      {% for b in rows %}
+        <li>
+          <div class="db-hbar-top"><span>{{ b.label }}</span><strong>{{ b.value }}</strong></div>
+          {{ ui.progress(b.pct, tone, 8) }}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="db-sub mb-0">{{ empty }}</p>
+  {% endif %}
+{%- endmacro %}
+
+{# Colour legend under a doughnut chart. rows = [{label, value, color}] #}
+{% macro legend(rows) %}
+  {% if rows %}
+    <ul class="db-legend">
+      {% for r in rows %}<li style="--c:{{ r.color }}">{{ r.label }}<strong>{{ r.value }}</strong></li>{% endfor %}
+    </ul>
+  {% endif %}
+{%- endmacro %}
+
+{# Small number tile. #}
+{% macro stat(label, value, hint=None) %}
+  <div class="am-stat"><small>{{ label }}</small><strong>{{ value }}</strong>{% if hint %}<span>{{ hint }}</span>{% endif %}</div>
+{%- endmacro %}

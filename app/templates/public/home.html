@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Rescue. Recover. Rehome." %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endblock %}
+{% block flash %}<div class="container-xxl pc-flash-wrap">{% include 'partials/_flash.html' %}</div>{% endblock %}
+{% block content %}
+<section class="pb-hero">
+  <div class="container-xxl">
+    <div class="pb-hero-grid">
+      <div class="pb-hero-copy">
+        <span class="pb-eyebrow"><i class="bi bi-heart-pulse-fill"></i> Stray animal rescue coordination</span>
+        <h1>Every stray deserves a <span class="pb-mark">rescue</span>, a recovery and a home.</h1>
+        <p class="pb-lead">PawConnect brings rescuers, volunteers, veterinarians, shelters and adopters onto one platform, so a report from the street becomes care, and care becomes a family.</p>
+        <div class="pb-hero-cta">
+          <a class="btn btn-primary btn-lg" href="{{ url_for('reports.new') }}"><i class="bi bi-megaphone"></i> Report an animal in need</a>
+          <a class="btn btn-outline-primary btn-lg" href="{{ url_for('public.animals') }}"><i class="bi bi-balloon-heart"></i> Meet adoptable animals</a>
+        </div>
+        <p class="pb-hero-note"><i class="bi bi-info-circle"></i> You do not need an account to report. You receive a report ID so you can <a href="{{ url_for('reports.track') }}" class="fw-semibold">track the progress</a>.</p>
+      </div>
+      <div class="pb-hero-art">
+        <img src="{{ url_for('static', filename='images/hero-illustration.svg') }}" width="640" height="520" alt="Friendly illustration of rescued animals among leafy plants">
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pb-stats-wrap" aria-labelledby="pb-stats-title">
+  <div class="container-xxl">
+    <h2 id="pb-stats-title" class="visually-hidden">PawConnect in numbers</h2>
+    <div class="pb-stats">
+      {% for icon, value, label in [
+        ('bi-megaphone', overview.reports, 'Reports received'),
+        ('bi-life-preserver', overview.rescued, 'Animals rescued'),
+        ('bi-balloon-heart', overview.adopted, 'Animals adopted'),
+        ('bi-house-heart', overview.available, 'Looking for a home'),
+        ('bi-people', overview.volunteers, 'Approved volunteers'),
+        ('bi-patch-check', overview.shelters, 'Verified shelters')] %}
+        <div class="pb-stat">
+          <span class="pb-stat-icon"><i class="bi {{ icon }}"></i></span>
+          <strong>{{ value }}</strong>
+          <span class="pb-stat-label">{{ label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+    <p class="pb-stats-note">These numbers are counted live from the PawConnect database.</p>
+  </div>
+</section>
+
+<section class="pb-section">
+  <div class="container-xxl">
+    <div class="pb-section-head">
+      <h2>From a street report to a forever home</h2>
+      <p>Every step is recorded, so everyone involved can see what has happened and what comes next.</p>
+    </div>
+    <div class="pb-steps">
+      <article class="pb-step"><span class="pc-icon-circle"><i class="bi bi-megaphone"></i></span><h3>Report</h3><p>Share a photo, the place and how urgent it is. Anyone can report, even without an account.</p></article>
+      <article class="pb-step"><span class="pc-icon-circle"><i class="bi bi-life-preserver"></i></span><h3>Rescue</h3><p>An administrator reviews the report and assigns a verified rescuer, who accepts the case and brings the animal to safety.</p></article>
+      <article class="pb-step"><span class="pc-icon-circle"><i class="bi bi-heart-pulse"></i></span><h3>Care</h3><p>Veterinarians record examinations and vaccinations while a shelter gives the animal a safe place to recover.</p></article>
+      <article class="pb-step"><span class="pc-icon-circle"><i class="bi bi-balloon-heart"></i></span><h3>Adopt</h3><p>Healthy animals are listed for adoption. Adopters apply online and follow their application until it is complete.</p></article>
+    </div>
+    <p class="text-center mt-4 mb-0"><a class="pc-link-arrow" href="{{ url_for('public.how_it_works') }}">See the full process <i class="bi bi-arrow-right"></i></a></p>
+  </div>
+</section>
+
+<section class="pb-section">
+  <div class="container-xxl">
+    <div class="pb-section-head">
+      <h2>Looking for a home</h2>
+      <p>The newest animals that are healthy, cared for and ready to be adopted.</p>
+    </div>
+    {% if featured %}
+      <div class="row g-4">
+        {% for a in featured %}
+          <div class="col-sm-6 col-xl-4">{% include 'public/_animal_card.html' %}</div>
+        {% endfor %}
+      </div>
+      <p class="text-center mt-4 mb-0"><a class="btn btn-outline-primary" href="{{ url_for('public.animals') }}">Browse all adoptable animals <i class="bi bi-arrow-right"></i></a></p>
+    {% else %}
+      <div class="pc-card"><div class="pc-card-body">
+        {{ ui.empty_state('bi-balloon-heart', 'No animals are listed for adoption right now',
+                          'Animals appear here after they have been rescued, treated and listed by a shelter or administrator. Please check back soon.',
+                          url_for('reports.new'), 'Report an animal in need') }}
+      </div></div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="pb-section">
+  <div class="container-xxl">
+    <div class="pb-section-head">
+      <h2>Join the network</h2>
+      <p>Whatever you can offer, there is a place for you. Rescuers, veterinarians and shelters are verified by an administrator before they get full access.</p>
+    </div>
+    <div class="pb-roles">
+      {% for role in [C.ROLE_ADOPTER, C.ROLE_VOLUNTEER, C.ROLE_RESCUER, C.ROLE_VETERINARIAN, C.ROLE_SHELTER] %}
+        <article class="pb-role">
+          <span class="pc-icon-circle"><i class="bi {{ C.ROLE_ICONS[role] }}"></i></span>
+          <h3>{{ C.ROLE_LABELS[role] }}</h3>
+          <p>{{ C.ROLE_DESCRIPTIONS[role] }}</p>
+          {% if current_user.is_authenticated %}
+            <a class="btn btn-soft btn-sm align-self-start" href="{{ url_for('dashboard.index') }}">Go to my dashboard</a>
+          {% elif role == C.ROLE_VOLUNTEER %}
+            <a class="btn btn-soft btn-sm align-self-start" href="{{ url_for('auth.register_volunteer') }}">Register as a volunteer</a>
+          {% else %}
+            <a class="btn btn-soft btn-sm align-self-start" href="{{ url_for('auth.register', role=role) }}">Register as {{ C.ROLE_LABELS[role]|lower }}</a>
+          {% endif %}
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="pb-section pb-4">
+  <div class="container-xxl">
+    <div class="pb-cta">
+      <div>
+        <h2>See an animal in trouble?</h2>
+        <p>Tell us where it is and what you see. The sooner the report reaches the rescue team, the sooner someone can help.</p>
+      </div>
+      <a class="btn btn-light btn-lg" href="{{ url_for('reports.new') }}"><i class="bi bi-megaphone"></i> Report an animal now</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

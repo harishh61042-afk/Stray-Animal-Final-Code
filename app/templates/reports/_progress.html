@@ -1,0 +1,16 @@
+{# Five-step progress bar for a rescue report.  Needs: report, steps (rescue_service.progress_steps) #}
+<ol class="rp-steps" aria-label="Rescue progress">
+  {% for step in steps %}
+    <li class="rp-step rp-step-{{ step.state }}"{% if step.state == 'current' %} aria-current="step"{% endif %}>
+      <span class="rp-step-dot">{% if step.state == 'done' %}<i class="bi bi-check-lg"></i>{% else %}{{ loop.index }}{% endif %}</span>
+      <span class="rp-step-label">{{ step.label }}</span>
+    </li>
+  {% endfor %}
+</ol>
+{% if report.status == C.REPORT_REJECTED %}
+  <div class="alert alert-warning pc-alert mt-3 mb-0" role="status"><i class="bi bi-info-circle"></i>
+    <div class="pc-alert-text"><strong>This report could not be accepted.</strong>{% if report.rejection_reason %} {{ report.rejection_reason }}{% endif %}</div></div>
+{% elif report.status == C.REPORT_CLOSED and steps[-1].state != 'done' %}
+  <div class="alert alert-secondary pc-alert mt-3 mb-0" role="status"><i class="bi bi-archive"></i>
+    <div class="pc-alert-text"><strong>This case is closed.</strong> The animal could not be found or rescued this time.</div></div>
+{% endif %}

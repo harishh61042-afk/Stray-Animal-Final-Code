@@ -1,0 +1,104 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'volunteers/_macros.html' as vm %}
+{% set page_title = volunteer.full_name %}
+{% set page_subtitle = "Volunteer" %}
+{% set crumbs = [("Coordination", None), ("Volunteers", url_for('volunteers.index')), (volunteer.full_name, None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('volunteers.index') }}"><i class="bi bi-people"></i> All volunteers</a>
+  {% if is_admin %}<a class="btn btn-primary" href="{{ url_for('admin.user_detail', user_id=volunteer.id) }}"><i class="bi bi-person-gear"></i> Manage account</a>{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div class="an-main">
+    {% call ui.card() %}
+      <div class="an-head-row">
+        {{ ui.person(volunteer.full_name, 'Joined ' ~ volunteer.created_at|localdt('%d %b %Y'), 52) }}
+        <div class="an-badges m-0">
+          {{ ui.status_badge(profile.application_status) }}
+          {% if volunteer.status != C.ACCOUNT_ACTIVE %}{{ ui.status_badge(volunteer.status) }}{% endif %}
+        </div>
+      </div>
+      <div class="an-subhead mt-4">Skills</div>
+      <div class="mb-3">{{ vm.skill_chips(profile.skills, 20) }}</div>
+      <div class="an-subhead">Availability</div>
+      <p class="an-text">{{ profile.availability or 'Not given' }}</p>
+      {% if profile.experience %}<div class="an-subhead mt-3">Experience with animals</div><p class="an-text">{{ profile.experience|nl2br }}</p>{% endif %}
+      {% if is_admin and profile.motivation %}<div class="an-subhead mt-3">Why they volunteer</div><p class="an-text">{{ profile.motivation|nl2br }}</p>{% endif %}
+    {% endcall %}
+
+    {% call ui.card('Recent tasks', (assignments|length ~ ' most recent') if assignments else None) %}
+      {% if assignments %}
+        <div class="table-responsive">
+          <table class="table pc-table align-middle mb-0">
+            <thead><tr><th>Task</th><th>Assigned</th><th>Status</th><th style="min-width: 8rem">Progress</th><th>Hours</th></tr></thead>
+            <tbody>
+              {% for a in assignments %}
+                <tr>
+                  <td><a class="fw-semibold" href="{{ url_for('tasks.detail', task_id=a.task_id) }}">{{ a.task.title }}</a><span class="an-mini">{{ a.task.task_type }}</span></td>
+                  <td>{{ a.assigned_at|localdt('%d %b %Y') }}</td>
+                  <td>{{ ui.status_badge(a.status) }}</td>
+                  <td>{{ ui.progress(a.progress_percent, 'green', 8) }}</td>
+                  <td>{{ '%g'|format(a.hours_spent) if a.hours_spent else '—' }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        {{ ui.empty_state('bi-list-check', 'No tasks yet', 'Tasks this volunteer accepts or is assigned to appear here.') }}
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="Summary and contact">
+    {% call ui.card('Work summary') %}
+      <div class="an-summary">
+        <div><small>Completed</small><strong>{{ summary.completed }}</strong></div>
+        <div><small>Active</small><strong>{{ summary.assigned + summary.accepted + summary.in_progress }}</strong></div>
+        <div><small>Declined</small><strong>{{ summary.declined }}</strong></div>
+        <div><small>Hours</small><strong>{{ summary.hours }}</strong></div>
+      </div>
+    {% endcall %}
+
+    {% call ui.card('Contact') %}
+      <div class="an-contact">
+        <div><i class="bi bi-envelope"></i><a href="mailto:{{ volunteer.email }}">{{ volunteer.email }}</a></div>
+        {% if volunteer.phone %}<div><i class="bi bi-telephone"></i><a href="tel:{{ volunteer.phone|replace(' ', '') }}">{{ volunteer.phone }}</a></div>{% endif %}
+        {% if is_admin and (profile.emergency_contact_name or profile.emergency_contact_phone) %}
+          <div><i class="bi bi-person-exclamation"></i>Emergency: {{ profile.emergency_contact_name or '' }}{% if profile.emergency_contact_phone %} &middot; {{ profile.emergency_contact_phone }}{% endif %}</div>
+        {% endif %}
+      </div>
+    {% endcall %}
+
+    {% if is_admin %}
+      {% call ui.card('Application') %}
+        <div class="an-summary">
+          <div><small>Status</small>{{ ui.status_badge(profile.application_status) }}</div>
+          <div><small>Applied</small><strong>{{ profile.applied_at|localdt('%d %b %Y') }}</strong></div>
+          {% if profile.reviewed_at %}<div><small>Reviewed</small><strong>{{ profile.reviewed_at|localdt('%d %b %Y') }}</strong>{% if profile.reviewer %}<span class="an-mini">by {{ profile.reviewer.full_name }}</span>{% endif %}</div>{% endif %}
+        </div>
+        {% if profile.review_note %}<div class="an-subhead mt-3">Note</div><p class="an-text">{{ profile.review_note|nl2br }}</p>{% endif %}
+        {% if profile.application_status == C.APPLICATION_PENDING %}
+          <div class="an-action mt-3">
+            <h3>Decision</h3>
+            <form method="post" action="{{ url_for('volunteers.review', user_id=volunteer.id) }}" class="an-stack">
+              {{ ui.csrf() }}
+              <textarea class="form-control" name="note" rows="2" maxlength="1000" placeholder="Note for the volunteer (required when rejecting)" aria-label="Note for the volunteer"></textarea>
+              <div class="an-inline">
+                <button class="btn btn-primary" type="submit" name="decision" value="approve" data-loading data-confirm="Approve {{ volunteer.full_name }} as a volunteer?"><i class="bi bi-patch-check"></i> Approve</button>
+                <button class="btn btn-outline-danger" type="submit" name="decision" value="reject" data-confirm="Reject this application? The volunteer is told your note."><i class="bi bi-x-circle"></i> Reject</button>
+              </div>
+            </form>
+          </div>
+        {% endif %}
+      {% endcall %}
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

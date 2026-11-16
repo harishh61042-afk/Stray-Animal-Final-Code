@@ -1,0 +1,111 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'shelters/_macros.html' as sm %}
+{% set page_title = "Admissions" %}
+{% set page_subtitle = (shelter.shelter_name ~ ': who entered and left') if shelter else 'Who entered and left each shelter' %}
+{% set crumbs = [("Shelter", None), ("Admissions", None)] if not is_admin else [("Shelters", url_for('shelters.index')), ("Admissions", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">{% endblock %}
+{% block page_actions %}
+  {% if is_admin %}<a class="btn btn-outline-primary" href="{{ url_for('shelters.index') }}"><i class="bi bi-house-heart"></i> Shelters</a>
+  {% else %}
+    <a class="btn btn-outline-primary" href="{{ url_for('animals.index') }}"><i class="bi bi-heart"></i> Our animals</a>
+    <a class="btn btn-primary" href="{{ url_for('animals.new') }}"><i class="bi bi-plus-lg"></i> Add an animal</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="vstack gap-4">
+  {% if not is_admin and shelter %}
+    {% call ui.card('Waiting for a place', (waiting_total ~ ' animal' ~ ('' if waiting_total == 1 else 's') ~ ' without a shelter') if waiting_total else 'Nobody is waiting right now') %}
+      <div class="mb-3">{{ sm.occupancy(shelter, shelter.current_count) }}</div>
+      {% if shelter.is_full %}
+        <div class="alert alert-warning pc-alert" role="note"><i class="bi bi-exclamation-triangle"></i>
+          <div class="pc-alert-text"><strong>Your shelter is full.</strong> Free a place (discharge or complete an adoption) before you admit another animal.</div></div>
+      {% endif %}
+      {% if waiting %}
+        {% for a in waiting %}
+          <div class="an-waiting">
+            <a class="an-animal-cell" href="{{ url_for('animals.detail', animal_id=a.id) }}">
+              {{ ui.img(animal_image_url(a), a.display_name ~ ', ' ~ a.animal_type|lower, class_='an-avatar', fallback=placeholder_url(a.animal_type)) }}
+              <span><strong>{{ a.display_name }}</strong><small>{{ a.animal_code }} &middot; {{ a.animal_type }}{% if a.breed %} &middot; {{ a.breed }}{% endif %} &middot; {{ a.age_display }}</small></span>
+            </a>
+            <div class="an-inline align-items-center">
+              {{ ui.status_badge(a.status) }}
+              {{ ui.status_badge(a.medical_status) }}
+              {% if not shelter.is_full %}
+                {{ ui.confirm_form(url_for('animals.assign_shelter', animal_id=a.id), 'Admit to our shelter', 'Admit ' ~ a.display_name ~ ' to ' ~ shelter.shelter_name ~ '?', 'btn btn-sm btn-primary', 'bi-house-add', {'next': url_with()}) }}
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+        {% if waiting_total > waiting|length %}<p class="an-note">...and {{ waiting_total - waiting|length }} more. Open an animal's page to see all details before you admit it.</p>{% endif %}
+      {% else %}
+        <p class="text-secondary mb-0">Animals that have been rescued but have no shelter yet are listed here, so you can offer them a place.</p>
+      {% endif %}
+    {% endcall %}
+  {% endif %}
+
+  {% call ui.card(flush=True) %}
+    <div class="an-tabs">
+      <div class="pc-seg" aria-label="Show">
+        <a href="{{ url_with(state=None, page=None) }}" class="{{ 'active' if state == 'current' }}">Currently housed ({{ counts.current }})</a>
+        <a href="{{ url_with(state='past', page=None) }}" class="{{ 'active' if state == 'past' }}">Left ({{ counts.past }})</a>
+        <a href="{{ url_with(state='all', page=None) }}" class="{{ 'active' if state == 'all' }}">All ({{ counts.all }})</a>
+      </div>
+    </div>
+    <form method="get" class="pc-filters" role="search" aria-label="Filter admissions">
+      {% if state != 'current' %}<input type="hidden" name="state" value="{{ state }}">{% endif %}
+      {{ ui.search_filter('q', q, 'Animal name, code or breed') }}
+      {% if is_admin %}{{ ui.select_filter('shelter_id', 'Shelter', shelter_options, shelter.id if shelter else '') }}{% endif %}
+      <div class="pc-filter d-flex gap-2 align-items-center">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+        {% if q or (is_admin and shelter) %}<a class="btn btn-link" href="{{ url_with(q=None, shelter_id=None, page=None) }}">Clear</a>{% endif %}
+      </div>
+    </form>
+
+    {% if pagination.items %}
+      <div class="table-responsive">
+        <table class="table pc-table align-middle">
+          <thead>
+            <tr><th>Animal</th>{% if is_admin and not shelter %}<th>Shelter</th>{% endif %}<th>Admitted</th><th>Left</th><th>Notes</th><th>Admitted by</th></tr>
+          </thead>
+          <tbody>
+            {% for adm in pagination.items %}
+              {% set a = adm.animal %}
+              <tr>
+                <td>
+                  {% if adm.is_current or is_admin %}<a class="an-animal-cell" href="{{ url_for('animals.detail', animal_id=a.id) }}">{% else %}<span class="an-animal-cell">{% endif %}
+                    {{ ui.img(animal_image_url(a), a.display_name ~ ', ' ~ a.animal_type|lower, class_='an-avatar', fallback=placeholder_url(a.animal_type)) }}
+                    <span><strong>{{ a.display_name }}</strong><small>{{ a.animal_code }} &middot; {{ a.animal_type }}</small></span>
+                  {% if adm.is_current or is_admin %}</a>{% else %}</span>{% endif %}
+                </td>
+                {% if is_admin and not shelter %}<td>{{ adm.shelter.shelter_name }}</td>{% endif %}
+                <td><span title="{{ adm.admitted_at|localdt }}">{{ adm.admitted_at|localdt('%d %b %Y') }}</span></td>
+                <td>
+                  {% if adm.discharged_at %}{{ adm.discharged_at|localdt('%d %b %Y') }}<span class="an-mini">{{ adm.discharge_reason or 'Discharged' }}</span>
+                  {% else %}{{ ui.status_badge('Still here', 'success') }}{% endif %}
+                </td>
+                <td>
+                  {% if adm.capacity_override %}<span class="pc-badge pc-badge-warning" title="{{ adm.override_reason or '' }}"><i class="bi bi-exclamation-triangle-fill"></i>Over capacity</span>
+                    {% if adm.override_reason %}<span class="an-mini">{{ adm.override_reason|truncate(60) }}</span>{% endif %}
+                  {% elif adm.note %}{{ adm.note|truncate(60) }}{% else %}<span class="text-body-tertiary">&mdash;</span>{% endif %}
+                </td>
+                <td>{{ adm.admitter.full_name if adm.admitter else '—' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3">{{ ui.pagination(pagination) }}</div>
+    {% else %}
+      {% if q %}
+        {{ ui.empty_state('bi-funnel', 'No admissions match your search', 'Try another word or clear the search.', url_for('shelters.admissions'), 'Show all') }}
+      {% elif state == 'past' %}
+        {{ ui.empty_state('bi-box-arrow-up', 'No animal has left yet', 'Animals appear here after they were adopted, transferred or released.') }}
+      {% else %}
+        {{ ui.empty_state('bi-box-arrow-in-down', 'No admissions yet', 'Animals appear here when they are admitted to the shelter.', url_for('animals.new') if not is_admin else None, 'Add an animal' if not is_admin else None) }}
+      {% endif %}
+    {% endif %}
+  {% endcall %}
+</div>
+{% endblock %}

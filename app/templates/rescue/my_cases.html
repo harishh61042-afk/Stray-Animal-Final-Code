@@ -1,0 +1,66 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "My cases" %}
+{% set page_subtitle = "Rescues assigned to you" %}
+{% set crumbs = [("Rescue", None), ("My cases", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('rescue.history') }}"><i class="bi bi-clock-history"></i> History</a>
+  <a class="btn btn-primary" href="{{ url_for('maps.overview') }}"><i class="bi bi-geo-alt"></i> Rescue map</a>
+{% endblock %}
+
+{% macro case_card(a, waiting) %}
+  {% set r = a.report %}
+  <article class="rp-case" style="--c:{{ C.EMERGENCY_COLORS.get(r.emergency_level, '#1f9d63') }}">
+    <div>
+      <h3><a href="{{ url_for('reports.detail', report_id=r.id) }}">{{ r.report_code }}</a> {{ ui.emergency_badge(r.emergency_level) }} {{ ui.status_badge(r.status) }}</h3>
+      <div class="fw-semibold mt-1">{{ r.animal_type }}{% if r.animal_count > 1 %} &times; {{ r.animal_count }}{% endif %} &middot; {{ r.animal_condition }}</div>
+      <div class="rp-case-meta">
+        <span><i class="bi bi-geo-alt"></i>{{ r.location_name }}</span>
+        <span><i class="bi bi-clock"></i>Assigned {{ a.assigned_at|timeago }}</span>
+        {% if a.deadline %}<span class="{{ 'rp-overdue' if a.is_overdue }}"><i class="bi bi-alarm"></i>By {{ a.deadline|localdt }}{{ ' (overdue)' if a.is_overdue }}</span>{% endif %}
+      </div>
+      {% if a.instructions %}<div class="rp-case-note"><strong>Instructions:</strong> {{ a.instructions }}</div>{% endif %}
+    </div>
+    <div class="rp-case-actions">
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('reports.detail', report_id=r.id) }}"><i class="bi bi-eye"></i> Open</a>
+      {% if not waiting and r.status == C.REPORT_IN_PROGRESS %}
+        <a class="btn btn-sm btn-primary" href="{{ url_for('rescue.register_animal', report_id=r.id) }}"><i class="bi bi-heart-pulse"></i> Register animal</a>
+      {% endif %}
+    </div>
+    {% if waiting %}
+      <div class="rp-reply">
+        <form method="post" action="{{ url_for('rescue.respond', assignment_id=a.id) }}">
+          {{ ui.csrf() }}<input type="hidden" name="decision" value="accept">
+          <button type="submit" class="btn btn-primary" data-loading><i class="bi bi-hand-thumbs-up"></i> Accept this case</button>
+        </form>
+        <form method="post" action="{{ url_for('rescue.respond', assignment_id=a.id) }}" class="rp-reply-row" data-confirm="Decline this case? The administrator will assign someone else.">
+          {{ ui.csrf() }}<input type="hidden" name="decision" value="decline"><input type="hidden" name="next" value="{{ url_for('rescue.my_cases') }}">
+          <input class="form-control form-control-sm" type="text" name="note" maxlength="500" required placeholder="Cannot take it? Tell the administrator why" aria-label="Reason for declining {{ r.report_code }}">
+          <button type="submit" class="btn btn-sm btn-outline-danger" data-loading>Decline</button>
+        </form>
+      </div>
+    {% endif %}
+  </article>
+{% endmacro %}
+
+{% block content %}
+{% if not waiting and not in_progress %}
+  {% call ui.card() %}
+    {{ ui.empty_state('bi-life-preserver', 'No cases right now', 'When an administrator assigns a report to you it appears here, and you get a notification. You can look through the incoming reports in the meantime.', url_for('rescue.manage'), 'Incoming reports') }}
+  {% endcall %}
+{% else %}
+  <div class="vstack gap-4">
+    {% if waiting %}
+      {% call ui.card('Waiting for your reply', 'Accept the case to start the rescue, or decline it with a reason') %}
+        {% for a in waiting %}{{ case_card(a, True) }}{% endfor %}
+      {% endcall %}
+    {% endif %}
+    {% if in_progress %}
+      {% call ui.card('In progress', 'Cases you accepted and have not finished') %}
+        {% for a in in_progress %}{{ case_card(a, False) }}{% endfor %}
+      {% endcall %}
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

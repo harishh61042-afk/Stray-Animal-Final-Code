@@ -1,0 +1,37 @@
+{# Small building blocks shared by the volunteer task pages.   {% import 'tasks/_macros.html' as tm %} #}
+{% import 'macros/ui.html' as ui %}
+
+{#  Type, place, deadline and how many volunteers a task has.  #}
+{% macro meta(task) %}
+  <div class="vt-meta">
+    {% if task.location_name %}<span><i class="bi bi-geo-alt"></i>{{ task.location_name }}</span>{% endif %}
+    {% if task.due_at %}
+      <span class="{{ 'vt-overdue' if task.is_overdue }}"><i class="bi bi-calendar-event"></i>{{ 'Overdue since' if task.is_overdue else 'Due' }} {{ task.due_at|localdt('%d %b, %I:%M %p') }}</span>
+    {% else %}
+      <span><i class="bi bi-calendar-event"></i>No deadline</span>
+    {% endif %}
+    <span><i class="bi bi-people"></i>{{ task.active_assignments|length }} of {{ task.volunteers_needed }} volunteer{{ '' if task.volunteers_needed == 1 else 's' }}</span>
+  </div>
+{% endmacro %}
+
+{#  A task as a card. With an ``assignment`` the badge shows the volunteer's own status.
+    Extra buttons go into a {% call %} block.  #}
+{% macro task_card(task, assignment=None) %}
+  {% set shown = assignment.status if assignment else task.status %}
+  <article class="vt-card{{ ' is-overdue' if task.is_overdue }}">
+    <div class="vt-card-head">
+      <span class="vt-type"><i class="bi bi-tag"></i>{{ task.task_type }}</span>
+      {{ ui.status_badge(shown) }}
+    </div>
+    <h3><a href="{{ url_for('tasks.detail', task_id=task.id) }}">{{ task.title }}</a></h3>
+    {% if task.description %}<p class="vt-desc">{{ task.description|truncate(140) }}</p>{% endif %}
+    {{ meta(task) }}
+    {% if assignment and assignment.status in (C.TA_ACCEPTED, C.TA_IN_PROGRESS) %}
+      {{ ui.progress(assignment.progress_percent, 'green', 8, 'My progress') }}
+    {% endif %}
+    <div class="vt-card-actions">
+      {% if caller %}{{ caller() }}{% endif %}
+      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('tasks.detail', task_id=task.id) }}">Details</a>
+    </div>
+  </article>
+{% endmacro %}

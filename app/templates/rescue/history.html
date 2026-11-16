@@ -1,0 +1,44 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Case history" %}
+{% set page_subtitle = "Rescues you finished, declined or that were withdrawn" %}
+{% set crumbs = [("Rescue", None), ("History", None)] %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">{% endblock %}
+{% block page_actions %}<a class="btn btn-primary" href="{{ url_for('rescue.my_cases') }}"><i class="bi bi-life-preserver"></i> My cases</a>{% endblock %}
+
+{% block content %}
+<div class="vstack gap-4">
+  <div class="row g-3">
+    <div class="col-sm-4">{{ ui.kpi('Completed', totals.get(C.ASSIGNMENT_COMPLETED, 0), 'bi-check2-circle', 'green', None, None, 'up', 'Rescues you finished') }}</div>
+    <div class="col-sm-4">{{ ui.kpi('Declined', totals.get(C.ASSIGNMENT_REJECTED, 0), 'bi-x-circle', 'amber', None, None, 'up', 'Cases you could not take') }}</div>
+    <div class="col-sm-4">{{ ui.kpi('Withdrawn', totals.get(C.ASSIGNMENT_CANCELLED, 0), 'bi-arrow-counterclockwise', 'blue', None, None, 'up', 'Taken back by an administrator') }}</div>
+  </div>
+
+  {% call ui.card('Finished cases', flush=True) %}
+    {% if pagination.items %}
+      <div class="table-responsive">
+        <table class="table pc-table align-middle">
+          <thead><tr><th>Report</th><th>Location</th><th>Result</th><th>Date</th><th>Notes</th><th class="text-end">&nbsp;</th></tr></thead>
+          <tbody>
+            {% for a in pagination.items %}
+              {% set r = a.report %}
+              <tr>
+                <td><a class="fw-semibold" href="{{ url_for('reports.detail', report_id=r.id) }}">{{ r.report_code }}</a>
+                  <span class="rp-mini">{{ r.animal_type }} &middot; {{ r.animal_condition }}</span></td>
+                <td>{{ r.location_name }}</td>
+                <td>{{ ui.status_badge(a.status) }}</td>
+                <td>{{ (a.completed_at or a.responded_at or a.assigned_at)|localdt('%d %b %Y') }}</td>
+                <td class="small text-secondary" style="max-width:280px">{{ (a.completion_details or a.response_note or '')|truncate(90) }}</td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('reports.detail', report_id=r.id) }}">Open</a></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="p-3">{{ ui.pagination(pagination) }}</div>
+    {% else %}
+      {{ ui.empty_state('bi-clock-history', 'No finished cases yet', 'Cases you complete, decline or that an administrator takes back are listed here.', url_for('rescue.my_cases'), 'My cases') }}
+    {% endif %}
+  {% endcall %}
+</div>
+{% endblock %}

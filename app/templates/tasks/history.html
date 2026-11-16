@@ -1,0 +1,44 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Task history" %}
+{% set page_subtitle = "Tasks you finished, gave back or that were cancelled" %}
+{% set crumbs = [("Volunteer", None), ("History", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/volunteers.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('tasks.mine') }}"><i class="bi bi-list-check"></i> My tasks</a>
+{% endblock %}
+
+{% block content %}
+<div class="an-kpis">
+  {{ ui.kpi('Completed', summary.completed, 'bi-check2-circle', 'green', None, None, 'up', 'Tasks you finished') }}
+  {{ ui.kpi('Hours', summary.hours, 'bi-clock-history', 'teal', None, None, 'up', 'Recorded so far') }}
+  {{ ui.kpi('Given back', summary.declined, 'bi-box-arrow-left', 'amber', None, None, 'up', 'Declined tasks') }}
+</div>
+
+{% call ui.card(flush=True) %}
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead><tr><th>Task</th><th>Status</th><th>Date</th><th>Hours</th><th>Notes</th></tr></thead>
+        <tbody>
+          {% for a in pagination.items %}
+            <tr>
+              <td><a class="fw-semibold" href="{{ url_for('tasks.detail', task_id=a.task_id) }}">{{ a.task.title }}</a><span class="an-mini">{{ a.task.task_type }}</span></td>
+              <td>{{ ui.status_badge(a.status) }}</td>
+              <td>{{ (a.completed_at or a.responded_at or a.task.updated_at)|localdt('%d %b %Y') }}</td>
+              <td>{{ '%g'|format(a.hours_spent) if a.hours_spent else '—' }}</td>
+              <td>{% if a.completion_notes %}{{ a.completion_notes|truncate(80) }}{% elif a.progress_note and a.status == C.TA_DECLINED %}{{ a.progress_note|truncate(80) }}{% else %}<span class="text-body-tertiary">&mdash;</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {{ ui.empty_state('bi-clock-history', 'Nothing here yet', 'Finished and returned tasks appear here.', url_for('tasks.available'), 'Find a task') }}
+  {% endif %}
+{% endcall %}
+{% endblock %}

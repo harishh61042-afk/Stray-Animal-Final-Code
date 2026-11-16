@@ -1,0 +1,59 @@
+{% extends "layouts/app.html" if current_user.is_authenticated else "base.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Report received" %}
+{% set page_subtitle = "Thank you for helping an animal in need" %}
+{% set crumbs = [("Report an animal", url_for("reports.new")), ("Report received", None)] %}
+{% block head_extra %}
+  {% if not current_user.is_authenticated %}<link rel="stylesheet" href="{{ url_for('static', filename='css/public.css') }}">{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/rescue.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set authed = current_user.is_authenticated %}
+<div class="rp-page rp-narrow{{ '' if authed else ' container-xxl py-5' }}">
+  <div class="rp-success">
+    <span class="rp-success-icon"><i class="bi bi-check2-circle"></i></span>
+    <h1>Thank you. Your report was received.</h1>
+    <p>The rescue team has been alerted and will review it shortly.
+      {% if not authed %}Please keep your Report ID: together with your phone number or e-mail it is how you follow the rescue.{% endif %}</p>
+    <div class="rp-code">
+      <div><small>Your Report ID</small><strong id="report-code">{{ report.report_code }}</strong></div>
+      <button type="button" class="btn btn-soft btn-sm" data-copy="{{ report.report_code }}"><i class="bi bi-clipboard"></i> Copy</button>
+      <button type="button" class="btn btn-soft btn-sm" data-print><i class="bi bi-printer"></i> Print</button>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-1">
+    <div class="col-lg-7">
+      {% call ui.card('Your report') %}
+        <div class="rp-facts mt-0">
+          <div class="rp-fact"><small>Animal</small><strong>{{ report.animal_type }}{% if report.animal_count > 1 %} &times; {{ report.animal_count }}{% endif %}</strong></div>
+          <div class="rp-fact"><small>Condition</small><strong>{{ report.animal_condition }}</strong></div>
+          <div class="rp-fact"><small>Urgency</small>{{ ui.emergency_badge(report.emergency_level) }}</div>
+          <div class="rp-fact"><small>Status</small>{{ ui.status_badge(report.status) }}</div>
+          <div class="rp-fact" style="grid-column:1 / -1"><small>Location</small><strong>{{ report.location_name }}</strong><span class="rp-mini">{{ report.address }}</span></div>
+        </div>
+      {% endcall %}
+    </div>
+    <div class="col-lg-5">
+      {% call ui.card('What happens next') %}
+        <ol class="rp-next">
+          <li><strong>Review</strong>An administrator checks your report.</li>
+          <li><strong>Assignment</strong>A verified rescuer is sent to the location.</li>
+          <li><strong>Updates</strong>{% if authed %}You will get a notification whenever the status changes.{% else %}Check the status any time on the tracking page.{% endif %}</li>
+        </ol>
+      {% endcall %}
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 justify-content-center mt-4 mb-2">
+    {% if authed %}
+      <a class="btn btn-primary" href="{{ url_for('reports.detail', report_id=report.id) }}"><i class="bi bi-eye"></i> View my report</a>
+    {% else %}
+      <a class="btn btn-primary" href="{{ url_for('reports.track', code=report.report_code) }}"><i class="bi bi-search"></i> Track this report</a>
+    {% endif %}
+    <a class="btn btn-outline-primary" href="{{ url_for('reports.new') }}"><i class="bi bi-plus-lg"></i> Report another animal</a>
+    <a class="btn btn-link" href="{{ url_for('public.home') }}">Back to home</a>
+  </div>
+</div>
+{% endblock %}

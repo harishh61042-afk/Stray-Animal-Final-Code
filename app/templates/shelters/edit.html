@@ -1,0 +1,94 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% import 'shelters/_macros.html' as sm %}
+{% set page_title = "Shelter profile" if own else "Edit " ~ shelter.shelter_name %}
+{% set page_subtitle = "How the public and rescuers see your shelter" if own else "Administrator edit" %}
+{% set crumbs = [("Shelter", None), ("Profile", None)] if own else [("Shelters", url_for('shelters.index')), (shelter.shelter_name, url_for('shelters.detail', shelter_id=shelter.id)), ("Edit", None)] %}
+{% block head_extra %}
+  {{ ui.map_head() }}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('shelters.detail', shelter_id=shelter.id) }}"><i class="bi bi-eye"></i> View public page</a>
+{% endblock %}
+
+{% block content %}
+<div class="an-layout">
+  <div>
+    {% if own and not shelter.is_verified %}
+      <div class="alert alert-warning pc-alert" role="note"><i class="bi bi-hourglass-split"></i>
+        <div class="pc-alert-text"><strong>Verification: {{ shelter.user.verification_status }}.</strong>
+          {% if shelter.user.verification_status == C.VERIFY_REJECTED %}An administrator could not verify your shelter. Correct the details below and contact us.
+          {% else %}An administrator is checking your details. Your shelter becomes public and can admit animals once it is verified.{% endif %}</div></div>
+    {% endif %}
+    {% call ui.card('Shelter details', 'Fields marked * are required.') %}
+      <form method="post" novalidate class="an-form">
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+        <section class="pc-form-section">
+          <h3><i class="bi bi-house-heart"></i> About the shelter</h3>
+          <div class="row g-3">
+            {{ f.field(form.shelter_name, col='col-md-8', autofocus=True) }}
+            {% if form.registration_number %}{{ f.field(form.registration_number, col='col-md-4') }}{% else %}
+              <div class="col-md-4"><div class="form-label">Registration number</div><div class="form-control-plaintext">{{ shelter.registration_number or 'Not given' }}</div></div>
+            {% endif %}
+            {{ f.field(form.description, col='col-12', rows=4, help='Shown on your public page: who you are, which animals you take, how adoption works.') }}
+          </div>
+        </section>
+        <section class="pc-form-section">
+          <h3><i class="bi bi-geo-alt"></i> Location</h3>
+          <div class="row g-3">
+            {{ f.field(form.address, col='col-12', rows=2) }}
+            {{ f.field(form.city, col='col-md-5') }}
+            {{ f.field(form.state, col='col-md-4') }}
+            {{ f.field(form.pincode, col='col-md-3') }}
+            <div class="col-12">
+              <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                <button type="button" id="shelter-locate" class="btn btn-soft btn-sm"><i class="bi bi-crosshair"></i> Use my current location</button>
+                <span class="pc-geo-status m-0" id="shelter-geo" aria-live="polite">Click the map to place the pin on your shelter (optional).</span>
+              </div>
+              {{ ui.map_box('shelter-map', 280) }}
+            </div>
+            {{ f.coordinate_fields(form.latitude, form.longitude) }}
+          </div>
+        </section>
+        <section class="pc-form-section">
+          <h3><i class="bi bi-telephone"></i> Contact</h3>
+          <div class="row g-3">
+            {{ f.field(form.contact_phone, col='col-md-6', help='Leave empty to use the phone number of your account.') }}
+            {{ f.field(form.contact_email, col='col-md-6', help='Leave empty to use the e-mail of your account.') }}
+            {{ f.field(form.website, col='col-12', placeholder='https://') }}
+          </div>
+        </section>
+        <section class="pc-form-section">
+          <h3><i class="bi bi-grid-3x3-gap"></i> Capacity</h3>
+          <div class="row g-3">
+            {{ f.field(form.capacity, col='col-md-4', help=(used ~ ' animal' ~ ('' if used == 1 else 's') ~ ' housed now, so the capacity cannot be lower than that.')) }}
+            <div class="col-md-8 align-self-end">{{ sm.occupancy(shelter, used) }}</div>
+          </div>
+        </section>
+        <div class="d-flex flex-wrap gap-2 pt-2">
+          {{ f.submit('Save shelter profile', 'bi-check2-circle', 'btn btn-primary btn-lg', 'Saving...') }}
+          <a class="btn btn-link" href="{{ url_for('dashboard.index') if own else url_for('shelters.index') }}">Cancel</a>
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+
+  <aside class="an-side" aria-label="Good to know">
+    {% call ui.card('Good to know') %}
+      <div class="an-stack">
+        <div class="an-private"><i class="bi bi-people"></i><div>Everyone can see the name, address, contact details, free places and the animals you list for adoption.</div></div>
+        <div class="an-private"><i class="bi bi-grid-3x3-gap"></i><div>Animals can only be admitted while you have free places. Only an administrator can admit an animal beyond the capacity, and the reason is recorded.</div></div>
+        <div class="an-private"><i class="bi bi-geo-alt"></i><div>A map pin helps rescuers and adopters find you. Without one, the shelter still appears in the directory.</div></div>
+      </div>
+    {% endcall %}
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ ui.map_scripts() }}
+  <script src="{{ url_for('static', filename='js/shelter_form.js') }}"></script>
+{% endblock %}

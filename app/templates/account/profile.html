@@ -1,0 +1,132 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'macros/forms.html' as f %}
+{% set page_title = "My profile" %}
+{% set page_subtitle = "Your contact details and role information." %}
+{% block page_actions %}<a class="btn btn-outline-primary" href="{{ url_for('account.change_password') }}"><i class="bi bi-key"></i> Change password</a>{% endblock %}
+{% block content %}
+{% set role = current_user.role %}
+<div class="row g-4">
+  <div class="col-lg-4">
+    <section class="pc-card">
+      <div class="pc-card-body text-center">
+        {{ ui.avatar(current_user.full_name, 84) }}
+        <h2 class="h5 mt-3 mb-2">{{ current_user.full_name }}</h2>
+        <span class="pc-badge pc-badge-success"><i class="bi {{ C.ROLE_ICONS[role] }}"></i> {{ current_user.role_label }}</span>
+      </div>
+      <div class="pc-card-body border-top">
+        {{ ui.kv('E-mail', current_user.email, 'bi-envelope') }}
+        {{ ui.kv('Account', ui.status_badge(current_user.status|title, tone=current_user.status|tone), 'bi-person-check') }}
+        {{ ui.kv('Member since', current_user.created_at|localdate, 'bi-calendar3') }}
+        {{ ui.kv('Last sign-in', current_user.last_login_at|localdt if current_user.last_login_at else none, 'bi-clock-history') }}
+        {% if current_user.needs_verification %}
+          {{ ui.kv('Verification', ui.status_badge(current_user.verification_status), 'bi-patch-check') }}
+        {% endif %}
+        {% if role == C.ROLE_VOLUNTEER and role_profile %}
+          {{ ui.kv('Volunteer application', ui.status_badge(role_profile.application_status), 'bi-people') }}
+        {% endif %}
+      </div>
+      {% if current_user.needs_verification and current_user.verification_note %}
+        <div class="pc-card-body border-top">
+          <div class="small text-secondary mb-1">Administrator's note</div>
+          <div class="pc-pre small">{{ current_user.verification_note }}</div>
+        </div>
+      {% endif %}
+      {% if role_profile and role_profile.verification_document is defined and role_profile.verification_document %}
+        <div class="pc-card-body border-top">
+          <a class="btn btn-outline-primary btn-sm w-100" target="_blank" rel="noopener" href="{{ url_for('files.verification_document', user_id=current_user.id) }}"><i class="bi bi-file-earmark-text"></i> View the document you submitted</a>
+        </div>
+      {% endif %}
+      {% if role == C.ROLE_VOLUNTEER %}
+        <div class="pc-card-body border-top"><a class="btn btn-outline-primary btn-sm w-100" href="{{ url_for('volunteers.my_application') }}"><i class="bi bi-clipboard-check"></i> My volunteer application</a></div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="col-lg-8">
+    {% call ui.card('Edit your details', 'Changes are saved to your account straight away.') %}
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        {{ f.form_errors(form) }}
+
+        <div class="pc-form-section">
+          <h3><i class="bi bi-person"></i> Personal details</h3>
+          <div class="row g-3">
+            {{ f.field(form.full_name, col='col-md-6') }}
+            {{ f.field(form.phone, col='col-md-6') }}
+            <div class="col-md-6">
+              <div class="pc-field mb-0">
+                <label class="form-label" for="account-email">E-mail address</label>
+                <input class="form-control" id="account-email" type="email" value="{{ current_user.email }}" disabled>
+                <div class="form-text">To change your e-mail address, please contact an administrator.</div>
+              </div>
+            </div>
+            {{ f.field(form.date_of_birth, col='col-md-6') }}
+            {{ f.field(form.bio, col='col-12', rows=2, placeholder='A few words about you') }}
+          </div>
+        </div>
+
+        {% if 'address' in editable %}
+        <div class="pc-form-section">
+          <h3><i class="bi bi-geo-alt"></i> Address</h3>
+          <div class="row g-3">
+            {{ f.field(form.address, col='col-12', rows=2) }}
+            {{ f.field(form.city, col='col-md-5') }}
+            {{ f.field(form.state, col='col-md-4') }}
+            {{ f.field(form.pincode, col='col-md-3') }}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if role == C.ROLE_VOLUNTEER %}
+        <div class="pc-form-section">
+          <h3><i class="bi bi-people"></i> Volunteer details</h3>
+          <div class="row g-3">
+            {{ f.field(form.skills, col='col-12', rows=3) }}
+            {{ f.field(form.availability, col='col-12') }}
+            {{ f.field(form.experience, col='col-12', rows=2) }}
+            {{ f.field(form.motivation, col='col-12', rows=2) }}
+            {{ f.field(form.emergency_contact_name, col='col-md-6') }}
+            {{ f.field(form.emergency_contact_phone, col='col-md-6') }}
+          </div>
+        </div>
+        {% elif role == C.ROLE_RESCUER %}
+        <div class="pc-form-section">
+          <h3><i class="bi bi-life-preserver"></i> Rescuer details</h3>
+          <div class="row g-3">
+            {{ f.field(form.organization, col='col-md-6') }}
+            {{ f.field(form.service_area, col='col-md-6') }}
+            {{ f.field(form.experience_years, col='col-md-6') }}
+            <div class="col-md-6 d-flex align-items-end pb-2">{{ f.field(form.has_vehicle) }}</div>
+          </div>
+        </div>
+        {% elif role == C.ROLE_VETERINARIAN %}
+        <div class="pc-form-section">
+          <h3><i class="bi bi-heart-pulse"></i> Veterinarian details</h3>
+          <div class="row g-3">
+            {{ f.field(form.clinic_name, col='col-md-6') }}
+            {{ f.field(form.specialization, col='col-md-6') }}
+            {{ f.field(form.qualification, col='col-md-6') }}
+            {{ f.field(form.experience_years, col='col-md-6') }}
+            {{ f.field(form.consultation_hours, col='col-md-6') }}
+            {{ f.field(form.clinic_address, col='col-12', rows=2) }}
+          </div>
+        </div>
+        {% elif role == C.ROLE_SHELTER %}
+        <div class="pc-form-section">
+          <h3><i class="bi bi-house-heart"></i> Shelter details</h3>
+          <div class="alert alert-info pc-alert mb-0" role="note"><i class="bi bi-info-circle-fill"></i>
+            <div class="pc-alert-text">Your shelter's name, address, capacity and map location are managed on the
+              <a href="{{ url_for('shelters.my_profile') }}" class="fw-semibold">shelter profile page</a>.</div></div>
+        </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <a class="btn btn-outline-secondary" href="{{ url_for('dashboard.index') }}">Cancel</a>
+          {{ f.submit('Save changes', icon='bi-check2-circle', loading='Saving...') }}
+        </div>
+      </form>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

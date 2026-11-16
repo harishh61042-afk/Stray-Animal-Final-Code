@@ -1,0 +1,66 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% set page_title = "Completed adoptions" %}
+{% set page_subtitle = "Every animal that went home, and who adopted it" %}
+{% set crumbs = [("Adoption", None), ("Completed adoptions", None)] %}
+{% block head_extra %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animals.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/adoption.css') }}">
+{% endblock %}
+{% block page_actions %}
+  {% if is_admin %}<a class="btn btn-outline-primary" href="{{ url_for('admin.export_csv', dataset='adoptions') }}"><i class="bi bi-download"></i> Export CSV</a>{% endif %}
+  <a class="btn btn-primary" href="{{ url_for('adoption.manage') }}"><i class="bi bi-card-checklist"></i> Applications</a>
+{% endblock %}
+
+{% block content %}
+<div class="an-kpis">
+  {{ ui.kpi('All time', totals.all, 'bi-balloon-heart', 'green', None, None, 'up', 'Completed adoptions') }}
+  {{ ui.kpi('This year', totals.year, 'bi-calendar3', 'blue', None, None, 'up', 'Since 1 January') }}
+  {{ ui.kpi('This month', totals.month, 'bi-calendar-heart', 'amber', None, None, 'up', 'Since the 1st') }}
+</div>
+
+{% call ui.card(flush=True) %}
+  <form method="get" class="pc-filters" role="search" aria-label="Filter adoptions">
+    {{ ui.search_filter('q', q, 'Animal name or code, adopter name or e-mail') }}
+    {% if is_admin %}{{ ui.select_filter('shelter_id', 'Shelter', shelter_options, shelter_id) }}{% endif %}
+    <div class="pc-filter d-flex gap-2 align-items-center">
+      <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Search</button>
+      {% if q or shelter_id %}<a class="btn btn-link" href="{{ url_with(q=None, shelter_id=None, page=None) }}">Clear</a>{% endif %}
+    </div>
+  </form>
+
+  {% if pagination.items %}
+    <div class="table-responsive">
+      <table class="table pc-table align-middle">
+        <thead><tr><th>Animal</th><th>Adopted by</th><th>Adoption date</th>{% if is_admin %}<th>Shelter</th>{% endif %}<th>Completed by</th><th>Notes</th><th class="text-end">Application</th></tr></thead>
+        <tbody>
+          {% for r in pagination.items %}
+            {% set animal = r.animal %}
+            <tr>
+              <td>
+                <a class="an-animal-cell" href="{{ url_for('animals.detail', animal_id=animal.id) }}">
+                  {{ ui.img(animal_image_url(animal), animal.display_name ~ ', ' ~ animal.animal_type|lower, class_='an-avatar', fallback=placeholder_url(animal.animal_type)) }}
+                  <span><strong>{{ animal.display_name }}</strong><small>{{ animal.animal_code }} &middot; {{ animal.animal_type }}</small></span>
+                </a>
+              </td>
+              <td>{{ ui.person(r.adopter.full_name, r.adopter.email, 32) }}</td>
+              <td>{{ r.adoption_date|localdate }}</td>
+              {% if is_admin %}<td>{{ r.shelter.shelter_name if r.shelter else '—' }}</td>{% endif %}
+              <td>{{ r.completer.full_name if r.completer else '—' }}</td>
+              <td>{% if r.final_notes %}{{ r.final_notes|truncate(70) }}{% else %}<span class="text-body-tertiary">&mdash;</span>{% endif %}</td>
+              <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('adoption.detail', application_id=r.application_id) }}">{{ r.application.application_code }}</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-3">{{ ui.pagination(pagination) }}</div>
+  {% else %}
+    {% if q or shelter_id %}
+      {{ ui.empty_state('bi-funnel', 'No adoption matches your search', 'Try another word or clear the search.', url_with(q=None, shelter_id=None, page=None), 'Clear the search') }}
+    {% else %}
+      {{ ui.empty_state('bi-balloon-heart', 'No adoption has been completed yet', 'Approved applications are completed from the application page when the animal goes home.', url_for('adoption.manage', show='approved'), 'See approved applications') }}
+    {% endif %}
+  {% endif %}
+{% endcall %}
+{% endblock %}

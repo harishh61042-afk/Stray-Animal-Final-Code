@@ -1,0 +1,82 @@
+{% extends "layouts/app.html" %}
+{% import 'macros/ui.html' as ui %}
+{% import 'dashboard/_lists.html' as lists %}
+{% set page_title = "Adopter dashboard" %}
+{% set page_subtitle = "Your adoption applications" %}
+{% block head_extra %}<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">{% endblock %}
+{% block page_actions %}
+  <a class="btn btn-outline-primary" href="{{ url_for('adoption.my_applications') }}"><i class="bi bi-clipboard-check"></i> My applications</a>
+  <a class="btn btn-primary" href="{{ url_for('public.animals') }}"><i class="bi bi-balloon-heart"></i> Browse animals</a>
+{% endblock %}
+
+{% block content %}
+{% set hour = utcnow()|localdt('%H')|int %}
+{% set greeting = 'Good morning' if hour < 12 else ('Good afternoon' if hour < 17 else 'Good evening') %}
+<div class="db-wrap">
+  <div class="db-kpis">
+    {{ ui.kpi('Applications', d.total, 'bi-clipboard-check', 'blue', None, None, 'up', 'All time', url_for('adoption.my_applications')) }}
+    {{ ui.kpi('In progress', d.active, 'bi-hourglass-split', 'amber', None, None, 'up', 'Pending, under review or approved', url_for('adoption.my_applications')) }}
+    {{ ui.kpi('Approved', d.approved, 'bi-patch-check', 'teal', None, None, 'up', 'Ready to be completed', url_for('adoption.my_applications')) }}
+    {{ ui.kpi('Adopted', d.adopted, 'bi-balloon-heart', 'green', None, None, 'up', 'Animals you gave a home', url_for('adoption.history')) }}
+  </div>
+
+  <div class="db-row db-row-hero">
+    {% call ui.hero(greeting ~ ', ' ~ current_user.full_name.split(' ')[0],
+                    'Find your new companion' if not d.total else ((d.active ~ ' application' ~ ('' if d.active == 1 else 's') ~ ' in progress') if d.active else 'Ready for another friend?'),
+                    'Browse the animals that are healthy and waiting for a home, then apply in a few minutes.' if not d.active else 'Follow each step of your applications and watch for notifications from the shelter.',
+                    'bi-balloon-heart') %}
+      <a class="btn btn-light" href="{{ url_for('public.animals') }}">Browse animals <i class="bi bi-arrow-up-right"></i></a>
+      <a class="btn btn-glass" href="{{ url_for('adoption.my_applications') }}">My applications</a>
+    {% endcall %}
+
+    {% call ui.card('Applications by status', 'Everything you applied for') %}
+      {% if d.total %}
+        <div class="row g-3 align-items-center">
+          <div class="col-sm-6">{{ ui.chart('chart-applications', d.status_chart, 190) }}</div>
+          <div class="col-sm-6"><ul class="db-legend" style="grid-template-columns:1fr;margin-top:0">{% for item in d.status_legend %}<li style="--c:{{ item.color }}">{{ item.label }}<strong>{{ item.value }}</strong></li>{% endfor %}</ul></div>
+        </div>
+      {% else %}
+        {{ ui.empty_state('bi-clipboard', 'No applications yet', 'When you apply to adopt an animal, your applications are summarised here.', url_for('public.animals'), 'Browse animals') }}
+      {% endif %}
+    {% endcall %}
+  </div>
+
+  <div class="db-row db-row-2-even">
+    {% call ui.card('My latest applications', 'Newest first') %}
+      {{ lists.application_rows(d.recent, 'bi-clipboard', 'No applications yet', 'Apply from any animal\'s page. Your applications will be listed here.') }}
+    {% endcall %}
+    {% call ui.card('Animals you may like', 'Newest animals looking for a home') %}
+      {% if d.suggestions %}
+        {% for a in d.suggestions %}
+          <div class="db-row-item">
+            {{ ui.img(animal_image_url(a), a.display_name, class_='db-thumb', fallback=placeholder_url(a.animal_type)) }}
+            <div class="db-row-main">
+              <a class="strong" href="{{ url_for('public.animal_detail', animal_id=a.id) }}">{{ a.display_name }}</a>
+              <small>{{ a.animal_type }}{% if a.breed %} &middot; {{ a.breed }}{% endif %} &middot; {{ a.age_months|age_text }}</small>
+            </div>
+            <div class="db-row-side"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('public.animal_detail', animal_id=a.id) }}">Meet</a></div>
+          </div>
+        {% endfor %}
+      {% else %}
+        {{ ui.empty_state('bi-balloon-heart', 'No animals to show', 'There are no other animals listed for adoption right now. Please check back soon.') }}
+      {% endif %}
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}
+
+{% block right_rail %}
+  {% include 'dashboard/_notes.html' %}
+  {% call ui.card('Quick actions') %}
+    <div class="db-quick">
+      <a href="{{ url_for('public.animals') }}"><i class="bi bi-balloon-heart"></i> Browse animals</a>
+      <a href="{{ url_for('adoption.my_applications') }}"><i class="bi bi-clipboard-check"></i> My applications</a>
+      <a href="{{ url_for('adoption.history') }}"><i class="bi bi-journal-check"></i> Adoption history</a>
+      <a href="{{ url_for('shelters.directory') }}"><i class="bi bi-house-heart"></i> Shelters</a>
+      <a href="{{ url_for('reports.new') }}"><i class="bi bi-megaphone"></i> Report an animal</a>
+      <a href="{{ url_for('account.profile') }}"><i class="bi bi-person-circle"></i> My profile</a>
+    </div>
+  {% endcall %}
+{% endblock %}
+
+{% block scripts %}{{ ui.chart_scripts() }}{% endblock %}
