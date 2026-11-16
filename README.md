@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # PawConnect
 
 **Stray Animal Rescue Coordination Platform with Adoption and Volunteer Management**
@@ -503,3 +504,7 @@ PyMySQL) and a MySQL server could not be installed. So the checks were done in t
 
 Please run `python -m pytest` once after you install the packages, then click through the
 [tour](#a-five-minute-tour). If a test or page fails, the message names the page or the rule, which makes a fix quick.
+=======
+# Stray-Animal-Final-Code
+Stray Animal Rescue, Adoption and Management System
+>>>>>>> origin/main
